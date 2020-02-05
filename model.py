@@ -13,6 +13,8 @@ import dill
 import time
 from calibration_targets import calib_targets
 
+#Set randomness for testing
+np.random.seed(1580943402)
 
 def age_preference_function(age_difference, sigma):
     """

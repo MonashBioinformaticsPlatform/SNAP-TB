@@ -1,6 +1,8 @@
 from numpy import random, nonzero, exp, linspace
 import tb_activation
 
+#Set randomness for testing
+random.seed(1580943402)
 
 def draw_life_duration_using_death_rates():
         """Unused for the moment"""

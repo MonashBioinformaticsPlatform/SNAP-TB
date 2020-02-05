@@ -7,6 +7,9 @@ import os
 from multiprocessing import Pool
 from numpy import random, linspace
 
+#Set randomness for testing
+random.seed(1580943402)
+
 t_0 = time.time()
 last_i_figure = 0
 calibration_params = {None: {'proba_infection_per_contact': linspace(start=0.002, stop=0.0025, num=2)},
@@ -123,9 +126,9 @@ for country in country_list:
             del m_r
             del output_models
 
-            if os.name == 'nt':
-                O.make_graphs()
-                O.write_timeseries_to_csv()
+            # TODO: Generate plots option add to "global" config
+            O.make_graphs()
+            O.write_timeseries_to_csv()
 
             last_i_figure = O.i_figure
             del O

@@ -1,0 +1,12 @@
+name: snap-tb
+channels:
+  - conda-forge
+dependencies:
+  - python=2.7
+  - numpy
+  - dill=0.2.9
+  - matplotlib=2.2.4
+  - scipy=1.0.0
+  - openpyxl=2.5.0
+  - pyDOE=0.3.8
+  - xlrd

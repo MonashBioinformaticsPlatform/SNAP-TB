@@ -1,0 +1,54 @@
+name: snap-tb
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - backports=1.0=py_2
+  - backports.functools_lru_cache=1.6.1=py_0
+  - backports_abc=0.5=py_1
+  - blas=1.1=openblas
+  - ca-certificates=2020.1.1=0
+  - certifi=2019.11.28=py27_0
+  - cycler=0.10.0=py_2
+  - dill=0.2.9=py27_0
+  - et_xmlfile=1.0.1=py_1001
+  - freetype=2.10.0=h24853df_1
+  - functools32=3.2.3.2=py_3
+  - futures=3.3.0=py27_0
+  - jdcal=1.4.1=py_0
+  - kiwisolver=1.1.0=py27ha1b3eb9_0
+  - libblas=3.8.0=11_openblas
+  - libcblas=3.8.0=11_openblas
+  - libcxx=9.0.1=1
+  - libffi=3.2.1=h6de7cb9_1006
+  - libgfortran=3.0.1=0
+  - liblapack=3.8.0=11_openblas
+  - libopenblas=0.3.6=hdc02c5d_2
+  - libpng=1.6.37=h2573ce8_0
+  - matplotlib=2.2.4=py27_2
+  - matplotlib-base=2.2.4=py27h11da6c2_2
+  - ncurses=6.1=h0a44026_1002
+  - numpy=1.16.5=py27hde6bac1_0
+  - openblas=0.2.20=8
+  - openpyxl=2.5.0=py27_0
+  - openssl=1.1.1d=h1de35cc_3
+  - pip=20.0.2=py27_1
+  - pydoe=0.3.8=py_1
+  - pyparsing=2.4.6=py_0
+  - python=2.7.15=hd51d24c_1009
+  - python-dateutil=2.8.1=py_0
+  - pytz=2019.3=py_0
+  - readline=8.0=hcfe32e1_0
+  - scipy=1.0.0=py27_blas_openblas_201
+  - setuptools=44.0.0=py27_0
+  - singledispatch=3.4.0.3=py27_1000
+  - six=1.14.0=py27_0
+  - sqlite=3.30.1=h93121df_0
+  - subprocess32=3.5.4=py27h0b31af3_0
+  - tk=8.6.10=hbbe82c9_0
+  - tornado=5.1.1=py27h1de35cc_1000
+  - wheel=0.34.2=py27_0
+  - xlrd=1.2.0=py27_0
+  - zlib=1.2.11=h0b31af3_1006
+prefix: /Users/msee/miniconda/envs/snap-tb
+
