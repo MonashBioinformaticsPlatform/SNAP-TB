@@ -1,8 +1,9 @@
-from numpy import random, nonzero, exp, linspace
+# from numpy import random, nonzero, exp, linspace
+import numpy as np
 import tb_activation
 
-#Set randomness for testing
-random.seed(1580943402)
+#Set np.randomness for testing
+np.random.seed(1580943402)
 
 def draw_life_duration_using_death_rates():
         """Unused for the moment"""
@@ -12,8 +13,8 @@ def draw_life_duration_using_death_rates():
                        35: .0035, 40: .0035, 45: .0035, 50: .005, 55: .007, 60: .01, 65: .01,
                        70: .1, 75: .1, 80: .2, 85: .3, 90: .5, 95: 1.}
 
-        scales = [1./death_rates[int(i)] for i in linspace(0, 95, num=20)]
-        times = random.exponential(scales)
+        scales = [1./death_rates[int(i)] for i in np.linspace(0, 95, num=20)]
+        times = np.random.exponential(scales)
         found_a_time = False
         for i, time in enumerate(times):
             if time <= 5.:
@@ -68,7 +69,7 @@ class Individual:
         """
         self.dOB = current_time - round(age*365.25)
         if age == 0.:
-            self.dOB = current_time - round(random.uniform(low=0., high=time_step))
+            self.dOB = current_time - round(np.random.uniform(low=0., high=time_step))
 
     def set_death_date(self, life_duration):
         """
@@ -78,7 +79,7 @@ class Individual:
         if proposed_dOD > 0.:
             self.programmed['death'] = proposed_dOD
         else:
-            self.programmed['death'] = random.randint(0, 10.*365.25, 1)[0]
+            self.programmed['death'] = np.random.randint(0, 10.*365.25, 1)[0]
 
     def set_date_leaving_home(self, params, minimum_date=None):
         """
@@ -86,7 +87,7 @@ class Individual:
         :param minimum_date: if specified, lower bound for the leaving date
         """
         self.programmed['leave_home'] = round(self.dOB + 365.25 *\
-                                                   random.uniform(params['minimal_age_leave_hh'],
+                                                   np.random.uniform(params['minimal_age_leave_hh'],
                                                                   params['maximal_age_leave_hh']))
         if minimum_date is not None:
             self.programmed['leave_home'] = max(self.programmed['leave_home'], minimum_date)
@@ -98,15 +99,15 @@ class Individual:
          - out_of_school_date
          - out_of_work_date
         """
-        age_go_to_school = params['school_age'] * 365.25 + random.uniform(-1., 1.) * 365.25  # in days
-        age_out_of_school = params['active_age_low'] * 365.25 + random.uniform(-3., 3.) * 365.25  # in days
-        age_out_of_work = random.uniform(55., 70.) * 365.25  # in days
+        age_go_to_school = params['school_age'] * 365.25 + np.random.uniform(-1., 1.) * 365.25  # in days
+        age_out_of_school = params['active_age_low'] * 365.25 + np.random.uniform(-3., 3.) * 365.25  # in days
+        age_out_of_work = np.random.uniform(55., 70.) * 365.25  # in days
 
         self.programmed['go_to_school'] = self.dOB + round(age_go_to_school)
         self.programmed['leave_school'] = self.dOB + round(age_out_of_school)
         self.programmed['leave_work'] = self.dOB + round(age_out_of_work)
 
-        active = random.binomial(1, params['perc_active']/100.)
+        active = np.random.binomial(1, params['perc_active']/100.)
         if active == 1:
             self.is_ever_gonna_work = True
 
@@ -157,14 +158,14 @@ class Individual:
                 rr = 0.2 * age - 2.
         else:
             # sigmoidal scale-up
-            rr = 1. / (1. + exp(-(age - params['infectiousness_switching_age'])))
+            rr = 1. / (1. + np.exp(-(age - params['infectiousness_switching_age'])))
 
         # organ-manifestation
         if self.tb_organ == '_smearneg':
             rr *= params['rel_infectiousness_smearneg']
 
         # detection status
-        if 'detection' in self.programmed.keys() and time >= self.programmed['detection']:
+        if 'detection' in list(self.programmed.keys()) and time >= self.programmed['detection']:
                 rr *= params['rel_infectiousness_after_detect']
 
         return rr
@@ -184,9 +185,9 @@ class Individual:
         time_to_activation = tb_activation.generate_an_activation_profile(self.get_age_in_years(time), params)
 
         #  if time_to_activation is not None:
-        if round(time + time_to_activation) < self.programmed['death']:
+        if np.rint(time + time_to_activation) < self.programmed['death']:
             # the individual will activate TB
-            self.programmed['activation'] = round(time + time_to_activation)
+            self.programmed['activation'] = int(np.rint(time + time_to_activation)[0])
 
     def test_individual_for_ltbi(self, params):
         """
@@ -194,12 +195,12 @@ class Individual:
         return: a boolean variable indicating the result of the test (True for positif test)
         """
         if self.ltbi:  # infected individual.
-            test_result = bool(random.binomial(n=1, p=params['ltbi_test_sensitivity']))
+            test_result = bool(np.random.binomial(n=1, p=params['ltbi_test_sensitivity']))
         else:  # not infected
             if self.vaccinated:  # bcg affects specificity
-                test_result = bool(random.binomial(n=1, p=1. - params['ltbi_test_specificity_if_bcg']))
+                test_result = bool(np.random.binomial(n=1, p=1. - params['ltbi_test_specificity_if_bcg']))
             else:
-                test_result = bool(random.binomial(n=1, p=1. - params['ltbi_test_specificity_no_bcg']))
+                test_result = bool(np.random.binomial(n=1, p=1. - params['ltbi_test_specificity_no_bcg']))
         return test_result
 
     def get_preventive_treatment(self, params, time=0, delayed=False):
@@ -211,10 +212,10 @@ class Individual:
         """
         date_prevented_activation = None
         if self.ltbi:
-            success = random.binomial(n=1, p=params['pt_efficacy'])
+            success = np.random.binomial(n=1, p=params['pt_efficacy'])
             if success == 1:
                 self.ltbi = False
-                if 'activation' in self.programmed.keys():
+                if 'activation' in list(self.programmed.keys()):
                     if not delayed or (delayed and (time + params['pt_delay_due_to_tst']) <= self.programmed['activation']):
                         date_prevented_activation = self.programmed['activation']
                         del self.programmed['activation']
@@ -242,8 +243,8 @@ class Individual:
                         (100. - params['perc_smearpos'] - params['perc_extrapulmonary'])/100.,  # smear_neg
                         params['perc_extrapulmonary']/100.]  # extrapulmonary
 
-        draw = random.multinomial(1, organ_probas)
-        index = int(nonzero(draw)[0])
+        draw = np.random.multinomial(1, organ_probas)
+        index = int(np.nonzero(draw)[0])
         self.tb_organ = ['_smearpos', '_smearneg', '_extrapulmonary'][index]
 
         # Natural history of TB
@@ -252,9 +253,9 @@ class Individual:
         else:
             organ_for_natural_history = '_closed_tb'
 
-        t_to_sp_cure = round(365.25 * random.exponential(scale=1. / params['rate_sp_cure' +
+        t_to_sp_cure = round(365.25 * np.random.exponential(scale=1. / params['rate_sp_cure' +
                                                                            organ_for_natural_history]))
-        t_to_tb_death = round(365.25 * random.exponential(scale=1. / params['rate_tb_mortality' +
+        t_to_tb_death = round(365.25 * np.random.exponential(scale=1. / params['rate_tb_mortality' +
                                                                             organ_for_natural_history]))
         if t_to_sp_cure <= t_to_tb_death:
             sp_cure = 1
@@ -265,8 +266,8 @@ class Individual:
             t_s = float('inf')
             t_m = t_to_tb_death
 
-        # Random generation of programmatic durations
-        [t_d, t_t] = random.exponential(scale=[365.25/params['lambda_timeto_detection' + organ_for_natural_history],
+        # np.random generation of programmatic durations
+        [t_d, t_t] = np.random.exponential(scale=[365.25/params['lambda_timeto_detection' + organ_for_natural_history],
                                                params['time_to_treatment']])
         t_d = round(t_d)
         t_t = round(t_t)
@@ -303,14 +304,14 @@ class Individual:
                 if self.tb_strain == 'mdr':
                     strain_multiplier = params['perc_dst_coverage'] / 100.
                     strain_multiplier *= params['relative_treatment_success_rate_mdr']
-                tx_cure = random.binomial(n=1, p=tx_success_prop * strain_multiplier)
+                tx_cure = np.random.binomial(n=1, p=tx_success_prop * strain_multiplier)
                 if tx_cure == 1:
                     if t_d + t_t < t_s: # will not overwrite the sp_cure date if it happens before treatment
                         self.programmed['recovery'] = time + t_d + t_t
                         to_be_returned['recovery'] = self.programmed['recovery']
                         to_be_returned['time_active'] = t_d + t_t
                 elif tx_cure == 0 and self.tb_strain == 'ds':  # there is a risk of DR amplification
-                    ampli = random.binomial(n=1, p=params['perc_risk_amplification'] / 100.)
+                    ampli = np.random.binomial(n=1, p=params['perc_risk_amplification'] / 100.)
                     if ampli == 1:
                         self.tb_strain = 'mdr'  # may be improved in the future as the amplification should occur later
                         to_be_returned['dr_amplification'] = time + t_d + t_t
@@ -335,9 +336,9 @@ class Individual:
         self.die_with_tb = False
         self.contacts_while_tb = {'household': set([]), 'school': set([]), 'workplace': set([]), 'community': set([])}
 
-        if 'activation' in self.programmed.keys():
+        if 'activation' in list(self.programmed.keys()):
             del(self.programmed['activation'])
-        if 'recovery' in self.programmed.keys():
+        if 'recovery' in list(self.programmed.keys()):
             del (self.programmed['recovery'])
 
     def reset_params(self):
@@ -367,7 +368,7 @@ class Individual:
         """
         When an individual is born, vaccination occurs with probability 'coverage'
         """
-        vacc = random.binomial(1, coverage)
+        vacc = np.random.binomial(1, coverage)
         if vacc == 1:
             self.vaccinated = True
 
@@ -392,7 +393,7 @@ class Individual:
             if age > 15.:
                 test = True
         else:
-            print "subgroup is not admissible"
+            print("subgroup is not admissible")
 
         return test
 
@@ -402,4 +403,4 @@ if __name__ == '__main__':
     for i in range(10000):
         ages.append(draw_life_duration_using_death_rates())
 
-    print sum(ages)/len(ages)
+    print(sum(ages)/len(ages))

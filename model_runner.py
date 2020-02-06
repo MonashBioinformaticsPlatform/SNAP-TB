@@ -29,7 +29,7 @@ class ModelRunner:
 
         self.create_keep_running_file()
         self.initialise_simulation()
-        print "########## The simulation has been successfully initialised  ##########"
+        print("########## The simulation has been successfully initialised  ##########")
 
     def clear_output_dir(self):
         """
@@ -76,12 +76,12 @@ class ModelRunner:
             if not self.data.console['different_init']:
                 # initialise a common model that will be used as a base population for the different scenarios and different runs
                 if self.data.console['load_root_models']:
-                    m_init = self.load_model(self.data.scenarios.keys()[0])
+                    m_init = self.load_model(list(self.data.scenarios.keys())[0])
                 elif self.data.console['load_calibrated_models']:
-                    print 'Loading seed ' + str(seed_index) + " ..."
-                    m_init = self.load_model(self.data.scenarios.keys()[0], calibrated=True, seed_index=seed_index)
+                    print('Loading seed ' + str(seed_index) + " ...")
+                    m_init = self.load_model(list(self.data.scenarios.keys())[0], calibrated=True, seed_index=seed_index)
                     m_init.adjust_attributes_after_calibration()
-                    print '... done'
+                    print('... done')
                 else:
                     m_init = model.TbModel(self.data, i_seed=seed_index, scenario='init', i_run=-1, initialised=False)
                 for scenario in self.data.scenarios:
@@ -108,10 +108,10 @@ class ModelRunner:
                     m_init.collect_scenario_specific_params(self.data)
 
                     if self.data.console['load_calibrated_models']:
-                        print 'Loading seed ' + str(seed_index) + " ..."
+                        print('Loading seed ' + str(seed_index) + " ...")
                         m_init.adjust_attributes_after_calibration()
                         self.m_init[seed_index][scenario] = copy.deepcopy(m_init)
-                        print "... done"
+                        print("... done")
                     if self.data.console['store_root_models']:
                         self.store_model(m_init)
 
@@ -121,7 +121,7 @@ class ModelRunner:
             string += scenario + " "
         string += "will be run from " + str(self.nb_seeds) + " seeds, " + str(self.data.console['n_runs']) + \
                   " times each for " + str(self.data.console['n_years']) + " years."
-        print string
+        print(string)
 
         self.initialise_storage()  # initialise diagnostics storage
 
@@ -164,8 +164,8 @@ class ModelRunner:
         row_index = m_dict['i_run'] + m_dict['i_seed'] * self.data.console['n_runs']
 
         # time series:
-        for name, series in m_dict['timeseries_log'].iteritems():
-            if name not in self.model_diagnostics[m_dict['scenario']]['timeseries'].keys():
+        for name, series in m_dict['timeseries_log'].items():
+            if name not in list(self.model_diagnostics[m_dict['scenario']]['timeseries'].keys()):
                 # initialize an array with the right dimensions
                 n_row = m_dict['params']['n_runs'] * self.nb_seeds
                 n_col = len(m_dict['timeseries_log']['times'])
@@ -175,22 +175,22 @@ class ModelRunner:
             self.model_diagnostics[m_dict['scenario']]['timeseries'][name][row_index, ] = series
 
         # chekpoint outcomes
-        for name, series in m_dict['checkpoint_outcomes'].iteritems():
-            if name not in self.model_diagnostics[m_dict['scenario']]['checkpoint_outcomes'].keys():
+        for name, series in m_dict['checkpoint_outcomes'].items():
+            if name not in list(self.model_diagnostics[m_dict['scenario']]['checkpoint_outcomes'].keys()):
                 # initialize a dictionary
                 self.model_diagnostics[m_dict['scenario']]['checkpoint_outcomes'][name] = {}
                 for checkpoint in m_dict['params']['checkpoints']:
                     self.model_diagnostics[m_dict['scenario']]['checkpoint_outcomes'][name][checkpoint] = {}
             for checkpoint in m_dict['params']['checkpoints']:
-                if checkpoint in series.keys():
+                if checkpoint in list(series.keys()):
                     self.model_diagnostics[m_dict['scenario']]['checkpoint_outcomes'][name][checkpoint][row_index] = \
                         series[checkpoint]
                 else:
-                    print "Warning: checkpoint " + str(checkpoint) + " is not among the iteration times."
+                    print("Warning: checkpoint " + str(checkpoint) + " is not among the iteration times.")
 
         # contact/transmission matrices
-        for key in self.model_diagnostics[m_dict['scenario']]['contact_matrices'].keys():
-            for location in self.model_diagnostics[m_dict['scenario']]['contact_matrices'][key].keys():
+        for key in list(self.model_diagnostics[m_dict['scenario']]['contact_matrices'].keys()):
+            for location in list(self.model_diagnostics[m_dict['scenario']]['contact_matrices'][key].keys()):
                 self.model_diagnostics[m_dict['scenario']]['contact_matrices'][key][location] += \
                     m_dict['contact_matrices'][key][location]
 
@@ -204,8 +204,8 @@ class ModelRunner:
                 self.model_diagnostics[m_dict['scenario']]['ltbi_age_stats'][key].append(m_dict['ltbi_age_stats'][key])
 
         # nb of transmission events by location
-        for key in self.model_diagnostics[m_dict['scenario']]['n_contacts'].keys():
-            for location in self.model_diagnostics[m_dict['scenario']]['n_contacts'][key].keys():
+        for key in list(self.model_diagnostics[m_dict['scenario']]['n_contacts'].keys()):
+            for location in list(self.model_diagnostics[m_dict['scenario']]['n_contacts'][key].keys()):
                 self.model_diagnostics[m_dict['scenario']]['n_contacts'][key][location].append(m_dict['n_contacts'][key][location])
 
         # prevalence by age
@@ -224,7 +224,7 @@ class ModelRunner:
             self.model_diagnostics[scenario]['aggr_timeseries'] = {}
             self.model_diagnostics[scenario]['aggr_checkpoint_outcomes'] = {}
             # Timeseries
-            for name, series_array in self.model_diagnostics[scenario]['timeseries'].iteritems():
+            for name, series_array in self.model_diagnostics[scenario]['timeseries'].items():
                 self.model_diagnostics[scenario]['aggr_timeseries'][name] = {'mean': [], 'low': [], 'high': []}
                 mean = np.mean(series_array, axis=0)
                 std = np.std(series_array, axis=0)
@@ -243,7 +243,7 @@ class ModelRunner:
         os.startfile(folder)
 
     def store_model(self, model_to_store):
-        print "Storing root model for " + model_to_store.scenario + "..."
+        print("Storing root model for " + model_to_store.scenario + "...")
         file_name = "pickled_model_" + model_to_store.scenario + ".pickle"
         file_path = os.path.join(self.base_path, self.data.console['project_name'], file_name)
         file_stream = open(file_path, "wb")
@@ -259,7 +259,7 @@ class ModelRunner:
 
         model_to_store.scale_up_functions = saved_scale_up_functions
         model_to_store.birth_numbers_function = saved_birth_numbers_function
-        print "Complete."
+        print("Complete.")
 
     def load_model(self, scenario, calibrated=False, seed_index=0):
         if calibrated:
@@ -267,10 +267,10 @@ class ModelRunner:
             base_path = os.path.join('calibrated_models', self.data.console['calibrated_models_directory'] + "_" +
                                     self.data.country)
             file_name = self.paths_to_calibrated_models[seed_index]
-            print "Loading calibrated model from " + self.data.console['calibrated_models_directory'] + "_" \
-                  + self.data.country + "/" + file_name + " ..."
+            print("Loading calibrated model from " + self.data.console['calibrated_models_directory'] + "_" \
+                  + self.data.country + "/" + file_name + " ...")
         else:
-            print "Loading root model for " + scenario + "..."
+            print("Loading root model for " + scenario + "...")
             base_path = os.path.join('outputs', self.data.console['project_name'])
             file_name = "pickled_model_" + scenario + ".pickle"
 
@@ -280,7 +280,7 @@ class ModelRunner:
         loaded_model.scale_up_functions = self.data.scale_up_functions
         loaded_model.birth_numbers_function = self.data.birth_numbers_function
         file_stream.close()
-        print "Complete."
+        print("Complete.")
         return loaded_model
 
 
@@ -292,4 +292,4 @@ if __name__ == "__main__":
     loaded_model = dill.load(file_stream)
 
     loaded_model.params['g_child']
-    print "s"
+    print("s")

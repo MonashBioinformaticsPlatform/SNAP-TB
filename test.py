@@ -48,10 +48,10 @@ del par_dict
 
 for country in country_list:
     if country is not None:
-        print "******************************"
-        print "Running model for " + country
+        print("******************************")
+        print("Running model for " + country)
 
-    if country in calibration_params.keys():
+    if country in list(calibration_params.keys()):
         m_r = model_runner.ModelRunner(country=country, calibration_params=calibration_params[country],
                                        uncertainty_params=uncertainty_params)
     else:
@@ -75,14 +75,14 @@ for country in country_list:
         seed_index = run_indices[0]
         scenario = run_indices[1]
         i_run = run_indices[2]
-        print "Running " + scenario + " run " + str(i_run)
+        print("Running " + scenario + " run " + str(i_run))
         random.seed(i_run)
         m = copy.deepcopy(m_r.m_init[seed_index][scenario])
         m.i_seed = seed_index
         m.i_run = i_run
         m.initialised = True
         m.run()
-        print "__________________________ " + scenario + " seed " + str(seed_index) + " run " + str(i_run) + " successfully run"
+        print("__________________________ " + scenario + " seed " + str(seed_index) + " run " + str(i_run) + " successfully run")
 
         if os.name != 'nt' and running_mode == 'run_lhs_calibration':
             mo_dict = {}
@@ -111,7 +111,7 @@ for country in country_list:
                 output_models.append(m_dict)
 
         if os.name != 'nt' and running_mode == 'run_lhs_calibration':
-            print "No output created as not requested on remote machines"
+            print("No output created as not requested on remote machines")
             del m_r
             del output_models
         else:
@@ -120,7 +120,7 @@ for country in country_list:
 
             m_r.aggregate_scenario_results()
 
-            print 'Simulation completed'
+            print('Simulation completed')
 
             O = outputs.output(m_r, last_i_figure)
             del m_r
@@ -134,4 +134,6 @@ for country in country_list:
             del O
 
 elapsed = time.time() - t_0
-print "The whole simulation took " + str(elapsed) + " seconds to complete."
+print("The whole simulation took " + str(elapsed) + " seconds to complete.")
+
+# print("Random value: " + str(random.rand()) )

@@ -59,7 +59,7 @@ class output:
         param_vals = get_lhs_param_values('calibrated_models/test_LHScalibration_100s12r_Jul2019_' +
                                           self.model_runner.country + '/all_lhs_values.csv')
 
-        print param_vals.keys()
+        print((list(param_vals.keys())))
         translate = {'proba_infection_per_contact': 'transmission probability', 'n_colleagues': '# of colleagues',
                      'infectiousness_switching_age': 'infectiousness switching age (a)',
                      'g_child': "g_child", 'g_teen': 'g_teen', 'g_adult': 'g_adult'}
@@ -170,7 +170,7 @@ class output:
             contrib = self.model_runner.model_diagnostics['scenario_1']['n_contacts']['transmission_end_tb']
             num = 0.
             denom = 0.
-            for key in contrib.keys():
+            for key in list(contrib.keys()):
                 val = float(contrib[key][i_run])
                 denom += val
                 if "house" in output_name and key == 'household':
@@ -214,7 +214,7 @@ class output:
         self.base_path = os.path.join(self.base_path, self.model_runner.data.console['project_name'])
 
     def fetch_timeseries_to_plot(self):
-        for param in self.model_runner.data.console.keys():
+        for param in list(self.model_runner.data.console.keys()):
             if 'plot_ts_' in param:
                 if self.model_runner.data.console[param]:
                     self.timeseries_to_plot.append(param[8:])
@@ -244,7 +244,7 @@ class output:
         self.make_scenario_specific_graphs()
         self.make_comparative_graphs()
 
-        print str(self.i_figure) + " figures have been created."
+        print((str(self.i_figure) + " figures have been created."))
 
     def make_scenario_specific_graphs(self):
         for scenario in self.model_runner.data.scenario_names:
@@ -265,8 +265,8 @@ class output:
                 if self.model_runner.data.console['plot_contact_heatmap'] and len(self.model_runner.data.console['years_checkpoints']) > 0:
                     self.plot_prem_like(scenario)
                 else:
-                    print 'plot_prem_like requested but not possible.'
-                    print 'missing heatmaps and/or age-pyramid'
+                    print('plot_prem_like requested but not possible.')
+                    print('missing heatmaps and/or age-pyramid')
             if self.model_runner.data.console['plot_transmission_by_location']:
                 for key in ['contact', 'transmission', 'transmission_end_tb']:
                     self.plot_contribution_by_location(scenario, key_of_interest=key)
@@ -376,7 +376,7 @@ class output:
         # create a matrix with the sum of all contacts
         self.model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] = np.zeros((101, 101))
 
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             self.model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] +=\
                 self.model_runner.model_diagnostics[scenario]['contact_matrices'][key][location]
 
@@ -384,7 +384,7 @@ class output:
         vmin = 0.
         vmax_all = np.amax(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'])
 
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             vmax = np.amax(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key][location])
             self.i_figure += 1
             with plt.style.context(('seaborn-dark')):
@@ -407,12 +407,12 @@ class output:
         # create a matrix with the sum of all contacts
         self.model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] = np.zeros((101, 101))
 
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             self.model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] += \
                 self.model_runner.model_diagnostics[scenario]['contact_matrices'][key][location]
 
         perc_contacts = {}
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             a = self.model_runner.model_diagnostics[scenario]['contact_matrices'][key][location]
             index_min = max(0, age_min)
             index_max = min(101, age_max)
@@ -420,10 +420,10 @@ class output:
             perc_contacts[location] = np.sum(a)
 
         denominator = copy.copy(perc_contacts['all'])
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             perc_contacts[location] = 100.*perc_contacts[location]/denominator
 
-        print perc_contacts
+        print(perc_contacts)
         return perc_contacts
 
     def plot_all_tb_ages(self, scenario):
@@ -459,8 +459,8 @@ class output:
 
         if len(x) > 0:
             prop_under_15 = float(len(ages_under_15))/ float(len(x))
-            print "Country: " + self.model_runner.country
-            print "Proportion of pediatric TB (<15 yo): " + str(prop_under_15)
+            print(("Country: " + self.model_runner.country))
+            print(("Proportion of pediatric TB (<15 yo): " + str(prop_under_15)))
 
         plt.xlabel('number of TB cases')
         plt.ylabel('age (years)')
@@ -485,19 +485,19 @@ class output:
             data_keys = keys
         x_labs = {'ages': 'age distribution', 'household_sizes': 'household size',
                   'school_sizes': 'school size', 'workplace_sizes': 'workplace size'}
-        bins = {'ages': range(100), 'household_sizes': range(20), 'school_sizes': 100, 'workplace_sizes': 100}
+        bins = {'ages': list(range(100)), 'household_sizes': list(range(20)), 'school_sizes': 100, 'workplace_sizes': 100}
         orientation = {'ages': 'horizontal', 'household_sizes': 'vertical',
                        'school_sizes': 'vertical' , 'workplace_sizes': 'vertical'}
 
         for data_key in data_keys:
-            for checkpoint in self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][data_key].keys():
+            for checkpoint in list(self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][data_key].keys()):
                 self.i_figure += 1
                 plt.figure(self.i_figure)
                 values = [value for i_run in range(self.model_runner.data.console['n_runs'] * self.model_runner.nb_seeds)
                         for value in self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][data_key][checkpoint][i_run]]
 
                 if len(values) == 0:
-                    print "No values to be plotted for " + data_key + " at year " + str(int(round(checkpoint/365.25)))
+                    print(("No values to be plotted for " + data_key + " at year " + str(int(round(checkpoint/365.25)))))
                     continue
 
                 plt.hist(values, bins=bins[data_key], orientation=orientation[data_key], density=True)
@@ -526,13 +526,13 @@ class output:
         self.i_figure += 1
         plt.figure(self.i_figure, figsize=(6, 9))
         x_labs = {'ages': 'age distribution', 'household_sizes': 'household size distribution'}
-        bins = {'ages': range(100), 'household_sizes': range(20)}
+        bins = {'ages': list(range(100)), 'household_sizes': list(range(20))}
         orientation = {'ages': 'horizontal', 'household_sizes': 'vertical'}
 
         # Age pyramid and (Household sizes)
         for i, key in enumerate(['ages']): #, 'household_sizes']):
             plt.subplot(3, 2, i+1)
-            checkpoint = self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][key].keys()[-1]
+            checkpoint = list(self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][key].keys())[-1]
             values = [value for i_run in range(self.model_runner.data.console['n_runs'] * self.model_runner.nb_seeds)
                       for value in
                       self.model_runner.model_diagnostics[scenario]['checkpoint_outcomes'][key][checkpoint][i_run]]
@@ -542,7 +542,7 @@ class output:
 
         # create a matrix with the sum of all contacts
         self.model_runner.model_diagnostics[scenario]['contact_matrices']['contact']['all'] = np.zeros((101, 101))
-        for location in self.model_runner.model_diagnostics[scenario]['contact_matrices']['contact'].keys():
+        for location in list(self.model_runner.model_diagnostics[scenario]['contact_matrices']['contact'].keys()):
             if location != 'all':
                 self.model_runner.model_diagnostics[scenario]['contact_matrices']['contact']['all'] += \
                     self.model_runner.model_diagnostics[scenario]['contact_matrices']['contact'][location]
@@ -625,21 +625,21 @@ class output:
         sp_number = self.model_runner.data.data_from_sheets['outcomes']['new_sp_coh']
         snep_number = self.model_runner.data.data_from_sheets['outcomes']['new_snep_coh']
         dataset_for_prop = {}
-        for year in snep_number.keys():
-            if year in sp_number.keys() and (snep_number[year] + sp_number[year]) > 0.:
+        for year in list(snep_number.keys()):
+            if year in list(sp_number.keys()) and (snep_number[year] + sp_number[year]) > 0.:
                 dataset_for_prop[year] = 100. * sp_number[year] / (sp_number[year] + snep_number[year])
 
         datasets.update({'sp_prop': dataset_for_prop})
 
-        for key, func in self.model_runner.data.scale_up_functions.iteritems():
+        for key, func in list(self.model_runner.data.scale_up_functions.items()):
             self.i_figure += 1
             plt.figure(self.i_figure)
 
-            time_in_years = np.linspace(1950., 2020., 1000.)
+            time_in_years = np.linspace(1950., 2020., 1000)
             y = [100.*func(val) for val in time_in_years]
             plt.plot(time_in_years, y, color='black')
 
-            for year, value in datasets[key].iteritems():
+            for year, value in list(datasets[key].items()):
                 plt.plot(year, value, 'ro', markersize=3.)
 
             plt.xlim((1950., 2020.))
@@ -709,7 +709,7 @@ class output:
                 best_dist = dist
                 best_scenario = scenario
 
-        plt.xlabel(self.dictionary[self.model_runner.data.calibration_params.keys()[0]])
+        plt.xlabel(self.dictionary[list(self.model_runner.data.calibration_params.keys())[0]])
         plt.ylabel(self.dictionary['tb_prevalence'])
 
         plt.xticks(positions, labels)
@@ -761,8 +761,8 @@ class output:
             prev_as_prop = prev / 1.e5
             unc_gap = 1.96 * math.sqrt(prev_as_prop*(1. - prev_as_prop)/nb_ind_in_agegroup)
             unc_gap *= 1.e5
-            print "Prevalence for age-group starting at " + str(age_min) + ": " + str(prev) + "( " + str(prev - unc_gap) +\
-                " - " + str(prev + unc_gap) + ")"
+            print(("Prevalence for age-group starting at " + str(age_min) + ": " + str(prev) + "( " + str(prev - unc_gap) +\
+                " - " + str(prev + unc_gap) + ")"))
 
     def write_prevalence_by_age_new(self, scenario):
         age_breaks = [0., 5., 10., 15., 25., 35., 45., 55., 65.]
@@ -776,8 +776,8 @@ class output:
             prevs_low = prevs_mean - 1.96*prev_sd/np.sqrt(float(len(prev_by_age)))
             prevs_high = prevs_mean + 1.96*prev_sd/np.sqrt(float(len(prev_by_age)))
 
-            print "Prevalence for age-group starting at " + str(age_min) + ": " + str(prevs_mean) + " (" + str(prevs_low) +\
-                " - " + str(prevs_high) + ")"
+            print(("Prevalence for age-group starting at " + str(age_min) + ": " + str(prevs_mean) + " (" + str(prevs_low) +\
+                " - " + str(prevs_high) + ")"))
 
     def plot_lhs_calibration_results(self):
         self.i_figure += 1
@@ -793,7 +793,7 @@ class output:
         plt.savefig(file_path)
         plt.close()
 
-        for param in self.model_runner.data.sampled_params.keys():
+        for param in list(self.model_runner.data.sampled_params.keys()):
             self.i_figure += 1
             plt.figure(self.i_figure)
             for i, scenario in enumerate(self.model_runner.data.scenario_names):
@@ -825,7 +825,7 @@ class output:
                 row1 = times
                 row1.insert(0, 'times')
                 writer.writerow(row1)
-                for timeseries_name in self.model_runner.model_diagnostics[sc]['aggr_timeseries'].keys():
+                for timeseries_name in list(self.model_runner.model_diagnostics[sc]['aggr_timeseries'].keys()):
                     if timeseries_name == 'times':
                         continue
                     for type in ['mean', 'low', 'high']:
@@ -836,7 +836,7 @@ class output:
                         writer.writerow(row)
 
     def store_outputs(self):
-        print "Pickling the outputs object before producing figures..."
+        print("Pickling the outputs object before producing figures...")
         os.path.join(self.base_path, "pickled_outputs.pickle")
         file_name = os.path.join(self.base_path, "pickled_outputs.pickle")
         file_stream = open(file_name, "wb")
@@ -851,10 +851,10 @@ class output:
 
         self.model_runner.data = saved_data
 
-        print "Complete."
+        print("Complete.")
 
 def load_outputs(file_path):
-    print "Loading outputs from " + file_path + " ..."
+    print(("Loading outputs from " + file_path + " ..."))
     file_stream = open(file_path, "rb")
     loaded_outputs = dill.load(file_stream)
     file_stream.close()
@@ -881,12 +881,12 @@ def load_outputs(file_path):
 
     # We need to retrieve the number of runs automatically as it may differ form the one currently written in the
     # console spreadsheet.
-    scenario = loaded_outputs.model_runner.data.scenarios.keys()[0]
+    scenario = list(loaded_outputs.model_runner.data.scenarios.keys())[0]
     loaded_outputs.model_runner.data.console['n_runs'] = \
         loaded_outputs.model_runner.model_diagnostics[scenario]['timeseries']['birth_rate'].shape[0] /\
         loaded_outputs.model_runner.nb_seeds
 
-    print "Complete."
+    print("Complete.")
     return loaded_outputs
 
 class multi_output:
@@ -996,10 +996,10 @@ class multi_output:
         plt.close()
 
     def make_a_heatmap(self, country, key, location, show_x_axis=False, show_y_axis=False):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] = np.zeros((101, 101))
 
-        for loc in self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys():
+        for loc in list(self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key].keys()):
             self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all'] += \
                 self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key][loc]
 
@@ -1053,8 +1053,8 @@ class multi_output:
 
 
         # contribution of age-categories
-        print "###############################"
-        print key + ' in ' + self.output_objects[country].model_runner.country
+        print("###############################")
+        print((key + ' in ' + self.output_objects[country].model_runner.country))
         a = self.output_objects[country].model_runner.model_diagnostics[scenario]['contact_matrices'][key]['all']
         all_contacts = a.sum()
         S = 0
@@ -1079,15 +1079,15 @@ class multi_output:
         #
         if all_contacts > 0 and key != 'contact':
 
-            print "Perc of contacts involving 15-20 as index: " + str(round(100.*contacts_index_15_20 / all_contacts))
-            print "Perc of contacts involving 15-20 as recipient: " + str(
-                round(100.*contacts_recipients_15_20 / all_contacts))
-            print "Perc of contacts between 15-20 : " + str(
-                round(100.*contacts_involving_15_20_only / all_contacts))
-            print "Perc of contacts involving 15-20 as either recipient or index: " + str(
-                round(100.*contacts_involving_15_20 / all_contacts))
+            print(("Perc of contacts involving 15-20 as index: " + str(round(100.*contacts_index_15_20 / all_contacts))))
+            print(("Perc of contacts involving 15-20 as recipient: " + str(
+                round(100.*contacts_recipients_15_20 / all_contacts))))
+            print(("Perc of contacts between 15-20 : " + str(
+                round(100.*contacts_involving_15_20_only / all_contacts))))
+            print(("Perc of contacts involving 15-20 as either recipient or index: " + str(
+                round(100.*contacts_involving_15_20 / all_contacts))))
 
-        print "S = " + str(S)
+        print(("S = " + str(S)))
         # contribution of 15-20 years old
         # print "#########"
         # print key
@@ -1189,12 +1189,12 @@ class multi_output:
         plt.close()
 
     def make_age_tb_age_pyramid(self, ax, country, colors):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         if len(self.output_objects[country].model_runner.data.console['years_checkpoints']) == 0:
-            print "No checkpoint found. tb_age_pyramid could not be generated."
+            print("No checkpoint found. tb_age_pyramid could not be generated.")
             return
-        checkpoint = self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys()[-1]
-        print len(self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'][checkpoint])
+        checkpoint = list(self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys())[-1]
+        print((len(self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'][checkpoint])))
         x_left = [value for i_run in range(self.output_objects[country].model_runner.data.console['n_runs']  * self.output_objects[country].model_runner.nb_seeds)
                   for value in
                   self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'][checkpoint][i_run]]
@@ -1247,8 +1247,8 @@ class multi_output:
         # ax.plot(right[0][0], 0.5*(right[1][0] + right[1][1]), color='black', marker='o')
 
         # confidence intervals
-        print "######################################################"
-        print "Quantitative results for the TB age distribution in " + country + ":"
+        print("######################################################")
+        print(("Quantitative results for the TB age distribution in " + country + ":"))
         my_grey = (83./255., 81./255., 84./255.)
         coef = multiplier * self.output_objects[country].model_runner.data.console['n_runs'] * self.output_objects[country].model_runner.nb_seeds
         tb_ages_by_run = self.output_objects[country].model_runner.model_diagnostics[scenario]['all_tb_ages']
@@ -1294,7 +1294,7 @@ class multi_output:
                             self.output_objects[country].model_runner.nb_seeds > 1:
                 string += " (" +\
                   str(perc_low) + " - " + str(perc_high) + ")"
-            print string
+            print(string)
 
         # x axis
         x_props = np.linspace(-0.1, 0.1, num=5)
@@ -1314,12 +1314,12 @@ class multi_output:
         # plt.xticks(x_tick_pos, x_tick_labs, fontsize=30, color='black')
 
     def get_age_specific_incidence(self, country, age_min, age_max):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         if len(self.output_objects[country].model_runner.data.console['years_checkpoints']) == 0:
-            print "No checkpoint found. tb_age_pyramid could not be generated."
+            print("No checkpoint found. tb_age_pyramid could not be generated.")
             return
         checkpoint = \
-        self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys()[-1]
+        list(self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys())[-1]
         ages = [value for i_run in range(
             self.output_objects[country].model_runner.data.console['n_runs'] * self.output_objects[
                 country].model_runner.nb_seeds)
@@ -1337,12 +1337,12 @@ class multi_output:
         if len(ages_in_category) > 0:
             prop = float(len(tb_ages_in_category)) / float(len(ages_in_category))
         else:
-            print "nobody lives in this age category"
+            print("nobody lives in this age category")
             return None
 
         incidence = prop * 1.e5 / 5.  # hard-coded  divided by 5 because 5 years
-        print "TB incidence among " + str(int(age_min)) + "-" + str(int(age_max)) + " in " + country + ": " +\
-              str(round(incidence, 2)) + " /100,000/y"
+        print(("TB incidence among " + str(int(age_min)) + "-" + str(int(age_max)) + " in " + country + ": " +\
+              str(round(incidence, 2)) + " /100,000/y"))
 
     def make_contribution_graphs(self):
         self.i_figure += 1
@@ -1379,7 +1379,7 @@ class multi_output:
         plt.close()
 
     def make_a_contribution_graph(self, ax, country, colors):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         locations = ['home', 'school', 'work', 'other']
         keys = ['household', 'school', 'workplace', 'community']
         event_types = ['contact', 'transmission', 'transmission_end_tb']
@@ -1396,10 +1396,10 @@ class multi_output:
 
         plt.title(country, fontsize=40, y=1.03)
 
-        print "###############################"
-        print "Quantitative contributions for " + country + ":"
+        print("###############################")
+        print(("Quantitative contributions for " + country + ":"))
         for i, key_of_interest in enumerate(event_types):
-            print "********** " + key_of_interest + " ***********"
+            print(("********** " + key_of_interest + " ***********"))
             perc_dict = copy.deepcopy(self.output_objects[country].model_runner.model_diagnostics[scenario]['n_contacts'][key_of_interest])
 
             for i_run in range(self.output_objects[country].model_runner.data.console['n_runs'] * self.output_objects[country].model_runner.nb_seeds):
@@ -1430,7 +1430,7 @@ class multi_output:
                     low = round(b.errorbar.lines[2][0]._paths[j]._vertices[0:2][0][1], 2)
                     high = round(b.errorbar.lines[2][0]._paths[j]._vertices[0:2][1][1], 2)
                     string += " (" + str(low) + " - " + str(high) + ")"
-                print string
+                print(string)
 
         plt.xlabel('')
         plt.ylabel('contribution (%)', fontsize=35, color='black')
@@ -1483,7 +1483,7 @@ class multi_output:
         plt.close()
 
     def make_a_tb_burden_clock(self, ax, country, colors):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         ltbi_age_stats = self.output_objects[country].model_runner.model_diagnostics[scenario]['ltbi_age_stats']
 
         radius_scaling = 3.  # 2. for disc effect  / 3. for sphere effect
@@ -1497,8 +1497,8 @@ class multi_output:
         r_clock_text = 0.6
         max_population = max(n_cases_by_age_group['population'])
         # max_n_ltbi = max(n_cases_by_age_group['n_ltbi_in_age_group'])
-        print "############################"
-        print "LTBI contributions (clock diagram) for " + country + ":"
+        print("############################")
+        print(("LTBI contributions (clock diagram) for " + country + ":"))
         for i in range(8):
             age_min = float(i) * 10.
             angle = math.pi / 2 - ((1. + 2. * float(i)) * math.pi / 8.)
@@ -1562,7 +1562,7 @@ class multi_output:
             string += "contributing " + str(perc_of_all_ltbi) + "% of all LTBI / among which " + str(
                 perc_tb_among_ltbi) + "% will ever activate TB"
             string += "  /  represents " + str(perc_tb_among_all_tb) + "% of future TB burden"
-            print string
+            print(string)
         ax.text(0., 0.9, '100', fontsize=30, color='black', va='center', ha='center')
 
         plt.xlim((-1.3, 1.3))
@@ -1570,7 +1570,7 @@ class multi_output:
         plt.axis('off')
 
     def make_a_tb_burden_clock_3d(self, ax, country, colors):
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
         ltbi_age_stats = self.output_objects[country].model_runner.model_diagnostics[scenario]['ltbi_age_stats']
 
         n_cases_by_age_group = self.process_ltbi_age_stats(ltbi_age_stats, country)
@@ -1582,8 +1582,8 @@ class multi_output:
         r_clock_text = 0.6
         max_population = max(n_cases_by_age_group['population'])
         # max_n_ltbi = max(n_cases_by_age_group['n_ltbi_in_age_group'])
-        print "############################"
-        print "LTBI contributions (clock diagram) for " + country + ":"
+        print("############################")
+        print(("LTBI contributions (clock diagram) for " + country + ":"))
         for i in range(8):
             age_min = float(i) * 10.
             angle = math.pi/2 - ((1. + 2. * float(i)) * math.pi/8.)
@@ -1648,7 +1648,7 @@ class multi_output:
             string += "LTBI prev of " + str(ltbi_prev_perc) + "% / "
             string += "contributing " + str(perc_of_all_ltbi) + "% of all LTBI / among which " + str(perc_tb_among_ltbi) + "% will ever activate TB"
             string += "  /  represents " + str(perc_tb_among_all_tb) + "% of future TB burden"
-            print string
+            print(string)
         ax.text(0., 0.9, 0., '100', fontsize=30, color='black', va='center', ha='center')
 
         plt.xlim((-1.3, 1.3))
@@ -1661,8 +1661,8 @@ class multi_output:
 
     def process_ltbi_age_stats(self, ltbi_age_stats, country):
         out_dict = {'population': [], 'n_ltbi_in_age_group': [], 'n_tb_in_age_group': []}  # index 0 for age cat 0-10
-        scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
-        checkpoint = self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys()[-1]
+        scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
+        checkpoint = list(self.output_objects[country].model_runner.model_diagnostics[scenario]['checkpoint_outcomes']['ages'].keys())[-1]
 
         ages = [value for i_run in range(
             self.output_objects[country].model_runner.data.console['n_runs'] * self.output_objects[
@@ -1696,7 +1696,7 @@ class multi_output:
             if i > 2:
                 row = 1
             plt.subplot(gs[row, col])
-            scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+            scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
             self.output_objects[country].plot_age_and_household_distributions(scenario=scenario, country=country,
                                                                               save=False, keys=['household_sizes'])
 
@@ -1717,7 +1717,7 @@ class multi_output:
                   'Pakistan': (62. / 256., 150. / 256., 81. / 256.)
                   }
 
-        time_in_years = np.linspace(1950., 2020., 1000.)
+        time_in_years = np.linspace(1950., 2020., 1000)
         for i, key in enumerate(['bcg_coverage_prop', 'cdr_prop', 'treatment_success_prop']):
             col = i % 2
             row = 0
@@ -1742,7 +1742,7 @@ class multi_output:
                 y = [100. * func(val) for val in time_in_years]
                 plt.plot(time_in_years, y, color=colors[country], linewidth=3.)
 
-                for year, value in dataset.iteritems():
+                for year, value in list(dataset.items()):
                     plt.plot(year, value, marker='o', color=colors[country], markersize=6.)
 
         filename = 'multi_country_scale_ups.pdf'  # + self.model_runner.data.console['graph_format']
@@ -1778,7 +1778,7 @@ class multi_output:
             plt.grid(False)
             plt.axis('off')
 
-        time_in_years = np.linspace(1950., 2020., 1000.)
+        time_in_years = np.linspace(1950., 2020., 1000)
         for country in self.countries:
             row += 1
             x_axis = False
@@ -1817,8 +1817,8 @@ class multi_output:
                     sp_number = self.output_objects[country].model_runner.data.data_from_sheets['outcomes']['new_sp_coh']
                     snep_number = self.output_objects[country].model_runner.data.data_from_sheets['outcomes']['new_snep_coh']
                     dataset = {}
-                    for year in snep_number.keys():
-                        if year in sp_number.keys() and (snep_number[year] + sp_number[year]) > 0.:
+                    for year in list(snep_number.keys()):
+                        if year in list(sp_number.keys()) and (snep_number[year] + sp_number[year]) > 0.:
                             dataset[year] = 100. * sp_number[year] / (sp_number[year] + snep_number[year])
                 else:
                     dataset = {}
@@ -1826,7 +1826,7 @@ class multi_output:
                 y = [100. * func(val) for val in time_in_years]
                 plt.plot(time_in_years, y, color='black', linewidth=0.8)
 
-                for year, value in dataset.iteritems():
+                for year, value in list(dataset.items()):
                     plt.plot(year, value, 'ro', markersize=0.5)
 
                 plt.tick_params(
@@ -1859,7 +1859,7 @@ class multi_output:
 
     def write_ltbi_prevalences(self, year=2014.):
         for country in self.countries:
-            scenario = self.output_objects[country].model_runner.data.scenarios.keys()[0]
+            scenario = list(self.output_objects[country].model_runner.data.scenarios.keys())[0]
             ltbi_data = self.output_objects[country].model_runner.model_diagnostics[scenario]['timeseries']['ltbi_prevalence']
             times = self.output_objects[country].model_runner.model_diagnostics[scenario]['timeseries']['times'][0, :]
             times = self.output_objects[country].convert_model_time_to_dates(times)
@@ -1882,8 +1882,8 @@ class multi_output:
             low = np.percentile(ltbi_prevs, 2.5)
             up = np.percentile(ltbi_prevs, 97.5)
 
-            print "LTBI prevalence (%) in " + str(year) + " for " + country + ":"
-            print str(mean_prev) + " (" + str(low), "- " + str(up) + ")"
+            print(("LTBI prevalence (%) in " + str(year) + " for " + country + ":"))
+            print((str(mean_prev) + " (" + str(low), "- " + str(up) + ")"))
 
 
 def get_lhs_param_values(path):

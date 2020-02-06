@@ -1,7 +1,7 @@
 
 import random
 from scipy import exp
-import cPickle as pickle
+import pickle
 import numpy
 
 #Set randomness for testing
@@ -1167,10 +1167,10 @@ def adapt_params_to_stratification(data_breakpoints, model_breakpoints, data_par
     assert data_param_vals.viewkeys() == data_strat.viewkeys()
 
     model_param_vals = {}
-    for new_name, new_range in model_strat.iteritems():
+    for new_name, new_range in model_strat.viewitems():
         new_low, new_up = new_range[0], new_range[1]
         considered_old_cats = []
-        for old_name, old_range in data_strat.iteritems():
+        for old_name, old_range in data_strat.viewitems():
             if (old_range[0] <= new_low <= old_range[1]) or (old_range[0] <= new_up <= old_range[1]):
                 considered_old_cats.append(old_name)
         beta = 0.  # store the new value for the parameter
@@ -1257,8 +1257,8 @@ def get_fraction_soln(numerator_labels, numerators, denominator):
 def sum_over_compartments_bycategory(model, compartment_types, categories):
 
     summed_soln = {}
-    summed_denominator \
-        = [0] * len(random.sample(model.compartment_soln.items(), 1)[0][1])
+    summed_denominator = [0] * len(random.sample(
+        model.compartment_soln.items(), 1)[0][1])
     compartment_types_bycategory = []
     if categories == 'strain':
         working_categories = model.strains

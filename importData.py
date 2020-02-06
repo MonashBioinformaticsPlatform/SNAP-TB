@@ -30,7 +30,11 @@ def sheet_to_dict(sheet):
         par_name = sheet.cell(row=line, column=1).value
         if par_name is None:
             break
-        par_name = par_name.encode('ascii', 'ignore')
+        if (isinstance(par_name, str)):
+            par_name = par_name
+        else:
+            par_name = par_name.decode("utf-8")
+        
         par_val = sheet.cell(row=line, column=2).value
         par_type = sheet.cell(row=line, column=3).value
         if par_type == 'integer':
@@ -59,11 +63,11 @@ def get_iso3(country):
         sheet = read_sheet(sheet_path)
         par_dict = sheet_to_dict(sheet)
         iso3 = None
-        for key, val in par_dict.iteritems():
-            if country.lower() in val.encode('utf8').lower():
+        for key, val in par_dict.items():
+            if country.lower() in val.replace(u'\xa0', u' ').lower(): #Seemed to have a problem where it didnt lower() the string
                 iso3 = key
     else:
-        print "Spreadsheet iso3.xlsx does not exist"
+        print("Spreadsheet iso3.xlsx does not exist")
     return iso3
 
 def get_agecategory(age, data='pyramid'):
@@ -112,10 +116,10 @@ class data:
     def create_output_directory(self):
         dir_path = path.join('outputs', self.console['project_name'])
         if not path.exists(dir_path):
-            print "Creating directory " + dir_path
+            print("Creating directory " + dir_path)
             makedirs(dir_path)
         else:
-            print "Directory " + dir_path + " already exists. No creation needed."
+            print("Directory " + dir_path + " already exists. No creation needed.")
 
     def read_all_data(self):
         """
@@ -132,7 +136,7 @@ class data:
                 setattr(self, sheet_name, par_dict)
 
             else:
-                print "Spreadsheet " + sheet_name + " does not exist"
+                print("Spreadsheet " + sheet_name + " does not exist")
 
         # adjust the country value in case of multi-country analysis
         if self.country is not None:
@@ -148,11 +152,11 @@ class data:
                 sheet = read_sheet(sheet_path)
                 self.read_country_parameters(sheet)
             else:
-                print "Spreadsheet " + sheet_name + " does not exist"
+                print("Spreadsheet " + sheet_name + " does not exist")
 
         # read the scenario-specific parameters
         if self.console['running_mode'] not in ['run_ks_based_calibration', 'run_lhs_calibration']:  # normal manual run. We read scenario-specific spreadsheets
-            for par_name, par_val in self.console.iteritems():
+            for par_name, par_val in self.console.items():
                 if 'scenario_' in par_name and par_val:
                     sheet_path = path.join(base_path, par_name + '.xlsx')
                     if path.isfile(sheet_path):
@@ -161,9 +165,9 @@ class data:
                         self.scenarios[par_name] = par_dict
                         self.scenario_names.append(par_name)
                     else:
-                        print "Spreadsheet " + par_name + " does not exist"
+                        print("Spreadsheet " + par_name + " does not exist")
         elif self.console['running_mode'] == 'run_ks_based_calibration':  # We automatically generate scenarios
-            for param_name, param_vals in self.calibration_params.iteritems():
+            for param_name, param_vals in self.calibration_params.items():
                 for param_val in param_vals:
                     scenario_name = "calib_" + str(round(param_val, 5))
                     scenario_name = scenario_name.replace('.', '_')
@@ -176,7 +180,7 @@ class data:
             for i_sample in range(self.console['n_lhs_paramsets']):
                 scenario_name = "lhs_sample_" + str(i_sample)
                 self.scenarios[scenario_name] = {'scenario_title': 'lhs_' + str(i_sample)}
-                for param in self.uncertainty_params.keys():
+                for param in list(self.uncertainty_params.keys()):
                     self.scenarios[scenario_name][param] = self.sampled_params[param][i_sample]
                 self.scenario_names.append(scenario_name)
         # # read the Mossong contact-rates data
@@ -197,7 +201,7 @@ class data:
         if path.isfile(sheet_path):
             ages_at_death = genfromtxt(sheet_path, delimiter=',')
         else:
-            print "Spreadsheet containing life durations does not exist"
+            print("Spreadsheet containing life durations does not exist")
         self.pool_of_life_durations = ages_at_death
         self.common_parameters['life_expectancy'] = mean(ages_at_death)
 
@@ -207,7 +211,7 @@ class data:
             sheet = read_sheet(sheet_path)
             self.process_age_pyramid(sheet)
         else:
-            print "Spreadsheet containing age pyramids does not exist"
+            print("Spreadsheet containing age pyramids does not exist")
 
         # load the activations times if required
         # if not self.console['generate_activation_times']:
@@ -224,7 +228,7 @@ class data:
             sheet = read_sheet(sheet_path)
             self.sd_agepref_work = sheet_to_dict(sheet)
         else:
-            print "Spreadsheet sd_agepref_work.xlsx does not exist"
+            print("Spreadsheet sd_agepref_work.xlsx does not exist")
 
         # total contact rate by age category and by contact_type using Prem data
         # also full matrix for all locations
@@ -247,12 +251,12 @@ class data:
             if path.isfile(sheet_path):
                 sheet = read_sheet(sheet_path)
                 for line in range(sheet.max_row + 1)[2:]:
-                    if sheet.cell(row=line, column=1).value.encode("utf-8") == iso3:
+                    if sheet.cell(row=line, column=1).value == iso3:
                         for j in range(2, 7):
-                            self.siler_params[sheet.cell(row=1, column=j).value.encode("utf-8")] =\
+                            self.siler_params[sheet.cell(row=1, column=j).value] =\
                                 float(sheet.cell(row=line, column=j).value)
             else:
-                print "Spreadsheet containing Siler parameters does not exist"
+                print("Spreadsheet containing Siler parameters does not exist")
 
         # time-variant parameters:
         if self.console['country'] != "None":
@@ -312,13 +316,13 @@ class data:
             sp_number = self.data_from_sheets['outcomes']['new_sp_coh']
             snep_number = self.data_from_sheets['outcomes']['new_snep_coh']
             dataset_for_prop = {}
-            for year in snep_number.keys():
-                if year in sp_number.keys() and (snep_number[year] + sp_number[year]) > 0.:
+            for year in list(snep_number.keys()):
+                if year in list(sp_number.keys()) and (snep_number[year] + sp_number[year]) > 0.:
                     dataset_for_prop[year] = 100.* sp_number[year] / (sp_number[year] + snep_number[year])
 
             datasets.update({'sp_prop': dataset_for_prop})
 
-            for key, dataset in datasets.iteritems():
+            for key, dataset in datasets.items():
                 # ignore some points for fitting
                 if self.country == 'India' and key == 'cdr_prop':
                     del dataset[2000]
@@ -327,8 +331,8 @@ class data:
                 if self.country == 'Philippines' and key == 'cdr_prop':
                     del dataset[2000]
 
-                x_vals = dataset.keys()
-                y_vals = [val/100. for val in dataset.values()]  # perc to prop
+                x_vals = list(dataset.keys())
+                y_vals = [val/100. for val in list(dataset.values())]  # perc to prop
 
                 if key == 'treatment_success_prop':
                     bound_high = 0.95
@@ -345,20 +349,20 @@ class data:
                 col_index = col
                 break
         if col_index is None:
-            print "WARNING: country " + self.console['country'] + " was not found in the country_parameters.xlsx spreadsheet."
+            print("WARNING: country " + self.console['country'] + " was not found in the country_parameters.xlsx spreadsheet.")
             return
 
         for row in range(sheet.max_row + 1)[2:]:
             param_name = sheet.cell(row=row, column=1).value
             param_value = sheet.cell(row=row, column=col_index).value
             if param_value is not None:
-                if param_name in self.console.keys():
+                if param_name in list(self.console.keys()):
                     self.console[param_name] = param_value
-                elif param_name in self.common_parameters.keys():
+                elif param_name in list(self.common_parameters.keys()):
                     self.common_parameters[param_name] = sheet.cell(row=row, column=col_index).value
                 else:
-                    print "WARNING: parameter " + param_name + " was not found in console.xlsx or common_parameters.xlsx"
-                    print "Its country-specifuc value for " + self.console['country'] + " was ignored."
+                    print("WARNING: parameter " + param_name + " was not found in console.xlsx or common_parameters.xlsx")
+                    print("Its country-specifuc value for " + self.console['country'] + " was ignored.")
 
     def process_age_pyramid(self, sheet):
         """
@@ -372,13 +376,13 @@ class data:
         for line in range(sheet.max_row + 1)[2:]:
             if sheet.cell(row=line, column=1).value == region:
                 for col_index in range(4, 21):
-                    cat_name = sheet.cell(row=1, column=col_index).value.encode("utf-8")
+                    cat_name = sheet.cell(row=1, column=col_index).value
                     value = float(sheet.cell(row=line, column=col_index).value)
                     self.age_pyramid[cat_name] = value
 
         # normalise the vector so it sums to 1.0. It now contains proportions
         s = sum(self.age_pyramid.values())
-        for key, value in self.age_pyramid.iteritems():
+        for key, value in self.age_pyramid.items():
             self.age_pyramid[key] /= s
 
     def create_contact_rate_function(self):
@@ -420,7 +424,7 @@ class data:
         According to the outputs required from the console spreadsheet, define the list of timeseries to be recorded
         """
         self.console['timeseries_to_record'] = []
-        for param in self.console.keys():
+        for param in list(self.console.keys()):
             if 'plot_ts_' in param:
                 if self.console[param]:
                     self.console['timeseries_to_record'].append(param[8:])
@@ -437,7 +441,7 @@ class data:
         self.console['run_universal_methods'] = False
         if self.console['plot_ts_mean_age'] or self.console['plot_ts_prop_under_5']:
             self.console['run_universal_methods'] = True
-            print "Universal methods are requested. The running time will be increased"
+            print("Universal methods are requested. The running time will be increased")
 
     def workout_birth_rates(self):
         """
@@ -494,7 +498,7 @@ class data:
             elif distrib['distri'] == 'beta':
                 self.sampled_params[param] = beta(distrib['pars'][0], distrib['pars'][1]).ppf(lhs_cube[:, i])
             else:
-                print distrib['distri'] + "distribution not supported."
+                print(distrib['distri'] + "distribution not supported.")
 
     def write_lhs_parameters(self):
         n_params = len(self.uncertainty_params)
@@ -505,7 +509,7 @@ class data:
             if j > 0:
                 header += ','
             header += param
-        a[:, j+1] = range(self.console['n_lhs_paramsets'])
+        a[:, j+1] = list(range(self.console['n_lhs_paramsets']))
 
         header += ',sample_id'
 

@@ -126,7 +126,7 @@ class SpreadsheetReader:
                'rate_birth_2015': 'Country Name',
                'default_programs': 'program',
                'country_programs': 'program',
-               'diabetes': u'Country/territory'}
+               'diabetes': 'Country/territory'}
         for year in range(2015, 2017):
             gtb_string = 'gtb_' + str(year)
             sheets_starting_row_one.append(gtb_string)
@@ -295,7 +295,7 @@ class SpreadsheetReader:
                 self.dictionary_keys = row
             elif row[0] == self.country_to_read:
                 for i in range(len(self.dictionary_keys)):
-                    if self.dictionary_keys[i][:28] == u'Diabetes national prevalence':
+                    if self.dictionary_keys[i][:28] == 'Diabetes national prevalence':
                         self.data['comorb_prop_diabetes'] = float(row[i][:row[i].find('\n')]) / 1e2
 
         # other sheets, such as strategy and mdr

@@ -45,10 +45,10 @@ if __name__ == "__main__":
     for _ in range(100000):
         age = np.random.uniform(low=0., high=70.)
         time_to_act = generate_an_activation_profile(age)
-        print "Age: " + str(age) + " / Time in years: " + str(round(time_to_act/365.25))
+        print("Age: " + str(age) + " / Time in years: " + str(round(time_to_act/365.25)))
 
         time_to_live = 365.25*(70 - age)
         if time_to_act < time_to_live:
             n_active += 1
 
-    print n_active
+    print(n_active)

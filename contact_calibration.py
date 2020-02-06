@@ -24,13 +24,14 @@ def read_age_pyramid(country):
     for line in range(sheet.max_row + 1)[2:]:
         if sheet.cell(row=line, column=1).value == region:
             for col_index in range(4, 21):
-                cat_name = sheet.cell(row=1, column=col_index).value.encode("utf-8")
+                cat_name = sheet.cell(row=1, column=col_index).value
+                # cat_name = sheet.cell(row=1, column=col_index).value.encode("utf-8")
                 value = float(sheet.cell(row=line, column=col_index).value)
                 age_pyramid[cat_name] = value
 
     # normalise the vector so it sums to 1.0. It now contains proportions
     s = sum(age_pyramid.values())
-    for key, value in age_pyramid.iteritems():
+    for key, value in age_pyramid.items():
         age_pyramid[key] /= s
     return age_pyramid
 
@@ -84,7 +85,7 @@ def extract_sub_matrix(matrix, age_min, age_max):
     high_bound = 5.*ceil(age_max/5.)  # e.g.  18 -> 20    20 -> 20
     index_max = int(high_bound / 5.) - 1
 
-    relevant_x_cat = range(index_min+1, index_max+1)
+    relevant_x_cat = list(range(index_min+1, index_max+1))
     relevant_x_cat = ["X_" + str(indice) for indice in relevant_x_cat]
     return {'matrix': matrix[index_min:index_max, index_min:index_max], 'relevant_x_cat': relevant_x_cat}
 
@@ -153,7 +154,7 @@ def calibrate_param_for_age_preference(matrix, age_pyramid, relevant_x_cat):
     #
     # if distance_linear < distance:
     #     best_param = slope
-    print best_param
+    print(best_param)
 
     return best_param
 
@@ -167,19 +168,20 @@ def get_country_list():
     countries = []
     for line in range(sheet.max_row + 1)[1:]:
         if line > 1:
-            countries.append(sheet.cell(row=line, column=1).value.encode("utf-8"))
+            countries.append(sheet.cell(row=line, column=1).value)
+            # countries.append(sheet.cell(row=line, column=1).value.encode("utf-8"))
     return countries
 
 def calibrate_param_for_all_countries():
     countries = get_country_list()
     sds = {'school': {}, 'work': {}, 'other_locations':{}}
     for country in countries:
-        print country
+        print(country)
         age_pyramid = read_age_pyramid(country)
         for contact_type in ['other_locations']:
             if len(age_pyramid) == 0:
                 sds[contact_type][country] = None
-                print "!!!!!!!! " + country
+                print("!!!!!!!! " + country)
             else:
                 matrix = read_matrix(contact_type, country)
                 age_min, age_max = 0., 80.
@@ -198,7 +200,7 @@ def calibrate_param_for_all_countries():
 def write_estimate_to_countries_spreadsheet(estimate_dict, param_name):
     wb = Workbook()
     ws = wb.active
-    for key, value in estimate_dict.iteritems():
+    for key, value in estimate_dict.items():
         ws.append([key, value])
 
     sheet_path = path.join(contact_base_path, param_name + '.xlsx')

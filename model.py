@@ -119,7 +119,7 @@ class Model:
                 self.n_contacts[key][location] = 0
 
     def evaluate_all_scale_up_functions(self):
-        for scale_up_key, func in self.scale_up_functions.iteritems():
+        for scale_up_key, func in self.scale_up_functions.items():
             remaining_years = (float(self.age_pyramid_date) - self.time) / 365.25
             time_in_year_date = self.params['current_year'] - remaining_years
             if self.params['time_variant_programmatic']:
@@ -168,9 +168,9 @@ class Model:
         and populates the params attribute of the model object
         """
         # collect common parameters
-        for key, value in data.console.iteritems():
+        for key, value in data.console.items():
             self.params[key] = value
-        for key, value in data.common_parameters.iteritems():
+        for key, value in data.common_parameters.items():
             self.params[key] = value
         self.prem_contact_rate_functions = data.prem_contact_rate_functions
         self.params['age_pyramid'] = data.age_pyramid
@@ -186,9 +186,9 @@ class Model:
     def collect_scenario_specific_params(self, data):
         # collect or rewrite scenario-specific parameters
         if self.scenario != 'init':
-            for key, value in data.scenarios[self.scenario].iteritems():
+            for key, value in data.scenarios[self.scenario].items():
                 self.params[key] = value
-        if 'time_step' in data.scenarios[self.scenario].keys() or 'n_years' in data.scenarios[self.scenario].keys():
+        if 'time_step' in list(data.scenarios[self.scenario].keys()) or 'n_years' in list(data.scenarios[self.scenario].keys()):
             self.process_n_iterations()
 
     def process_n_iterations(self):
@@ -220,21 +220,21 @@ class Model:
 
     def process_calibration_targets(self):
         self.remaining_calibration_targets = {}
-        if self.params['country'] in calib_targets.keys():
+        if self.params['country'] in list(calib_targets.keys()):
             for target in calib_targets[self.params['country']]:
-                if target['year'] not in self.remaining_calibration_targets.keys():
+                if target['year'] not in list(self.remaining_calibration_targets.keys()):
                     self.remaining_calibration_targets[target['year']] = []
                 self.remaining_calibration_targets[target['year']].append(target)
 
     def process_rr_transmission_by_location(self):
         self.params['rr_transmission_by_location'] = {}
-        for location in self.contact_matrices['contact'].keys():
+        for location in list(self.contact_matrices['contact'].keys()):
             prop_physical = self.params['prop_physical_' + location + '_contact']
             self.params['rr_transmission_by_location'][location] =\
                 prop_physical + (1 - prop_physical) * self.params['rr_transmission_nonphysical_contact']
 
         ref_rr = self.params['rr_transmission_by_location']['household']
-        for key, val in self.params['rr_transmission_by_location'].iteritems():
+        for key, val in self.params['rr_transmission_by_location'].items():
             self.params['rr_transmission_by_location'][key] = val/ref_rr
 
     def initialise_agegroups(self):
@@ -245,7 +245,7 @@ class Model:
 
     def update_ind_by_agegroup(self):
         self.initialise_agegroups()
-        for key, value in self.dates_of_birth.iteritems():
+        for key, value in self.dates_of_birth.items():
             age = (self.time - value) / 365.25
             self.ind_by_agegroup[get_agecategory(age,'prem')].append(key)
 
@@ -268,7 +268,7 @@ class Model:
         """
         # Allocate the adults first
         parenting_households = [] # store the hh ids where kids can be allocated during the initialisation phase
-        for h in self.households.values():
+        for h in list(self.households.values()):
             parents_age = np.random.uniform(self.params['minimal_age_leave_hh'], 100.)  # btwn 18 and 100.
             h.repopulate_date = self.time - 365.25*(parents_age - self.params['minimal_age_leave_hh'])
             if self.time - h.repopulate_date < 365.25*20.:
@@ -313,8 +313,8 @@ class Model:
         """
         # Build schools and assign the different households to the schools
         n_schools = int(ceil(self.params['n_schools'] * self.population / 1.e5))
-        self.groups_by_type['schools'] = range(1, n_schools + 1)
-        for hh_id in self.households.keys():
+        self.groups_by_type['schools'] = list(range(1, n_schools + 1))
+        for hh_id in list(self.households.keys()):
             self.households[hh_id].school_id = np.random.choice(self.groups_by_type['schools'], 1)[0]
         for school_id in self.groups_by_type['schools']:
             self.groups[school_id] = []
@@ -324,7 +324,7 @@ class Model:
         prop_in_working_age = sum([self.age_pyramid['X_' + str(i)] for i in range(5, 13)])
         n_working_individuals = self.population * prop_in_working_age * self.params['perc_active']/100.
         n_workplaces = int(ceil(n_working_individuals / (self.params['n_colleagues'] + 1.)))
-        self.groups_by_type['workplaces'] = range(n_schools + 1, n_schools + n_workplaces + 1)
+        self.groups_by_type['workplaces'] = list(range(n_schools + 1, n_schools + n_workplaces + 1))
         for workplace_id in self.groups_by_type['workplaces']:
             self.groups[workplace_id] = []
             self.group_types[workplace_id] = 'workplace'
@@ -359,7 +359,7 @@ class Model:
                 # nb_assigned_hh = np.random.poisson(lam=self.params['n_households_per_' + group_type])
                 nb_assigned_hh = np.random.poisson(lam=float(len(self.households))/float(len(self.groups_by_type['schools'])))
 
-                reassigned_hh = np.random.choice(self.households.keys(), nb_assigned_hh, replace=False)
+                reassigned_hh = np.random.choice(list(self.households.keys()), nb_assigned_hh, replace=False)
                 for hh_id in reassigned_hh:
                     self.households[hh_id].school_id = new_group_id
 
@@ -425,14 +425,14 @@ class Model:
         Note that the attribute self.groups_by_type['schools'] has already been updated so closing_school_id is no longer
         in this list.
         """
-        for h in self.households.values():
+        for h in list(self.households.values()):
             if h.school_id == closing_school_id:
                 h.school_id = np.random.choice(self.groups_by_type['schools'], 1)[0]
 
     def set_initial_tb_states(self):
 
         if self.params['init_n_tb_cases'] > 0:
-            diseased_indices = np.random.choice(self.individuals.keys(), self.params['init_n_tb_cases'], replace=False)
+            diseased_indices = np.random.choice(list(self.individuals.keys()), self.params['init_n_tb_cases'], replace=False)
             for ind in diseased_indices:
                 tb_strain = ['ds', 'mdr'][int(np.random.binomial(n=1, p=self.params['init_mdr_perc'] / 100.))]
                 self.individuals[ind].tb_strain = tb_strain
@@ -448,7 +448,7 @@ class Model:
         """
         n_ltbi = round(self.population * self.params['init_ltbi_prev']/100.)
         if n_ltbi > 0:
-            infected_indices = np.random.choice(self.individuals.keys(), int(n_ltbi), replace=False)
+            infected_indices = np.random.choice(list(self.individuals.keys()), int(n_ltbi), replace=False)
             for ind in infected_indices:
                 if not self.individuals[ind].active_tb:
                     tb_strain = ['ds', 'mdr'][int(np.random.binomial(n=1, p=self.params['init_mdr_perc']/100.))]
@@ -470,7 +470,7 @@ class Model:
         :return: nothing
         """
         self.eligible_hh_for_birth = {}
-        for h in self.households.values():
+        for h in list(self.households.values()):
             if (self.time - h.repopulate_date) < 365.25 * self.params['duration_hh_eligible_for_birth'] and \
                     h.size > 0 and (self.time - h.last_baby_time) > h.minimum_time_to_next_baby:
                 self.eligible_hh_for_birth[h.id] = h.size
@@ -482,8 +482,8 @@ class Model:
         :return: a household id
         """
         if len(self.eligible_hh_for_birth) > 0:
-            hh_ids = self.eligible_hh_for_birth.keys()
-            hh_sizes = self.eligible_hh_for_birth.values()
+            hh_ids = list(self.eligible_hh_for_birth.keys())
+            hh_sizes = list(self.eligible_hh_for_birth.values())
 
             probas = [1./float(x) for x in hh_sizes]
             probas = [x / sum(probas) for x in probas]
@@ -494,7 +494,7 @@ class Model:
         else:
             hh_size = 0
             while hh_size == 0:
-                hh_id = np.random.choice(self.households.keys(), 1)[0]
+                hh_id = np.random.choice(list(self.households.keys()), 1)[0]
                 hh_size = self.households[hh_id].size
 
         return hh_id
@@ -507,7 +507,7 @@ class Model:
         # If an individual has been waiting for a new home for more that 1 year, we allow birth to happen in his/her
         # household
         updates_ind_ids = []
-        for ind_id, time in self.individuals_want_to_move.iteritems():
+        for ind_id, time in self.individuals_want_to_move.items():
             if self.time - time > 365.25:
                 h = self.households[self.individuals[ind_id].household_id]
                 if h.size > 0:
@@ -564,7 +564,7 @@ class Model:
 
             if self.activation_stats['n_infections'] > 0:
                 perc_activation = 100.* self.activation_stats['n_activations'] / self.activation_stats['n_infections']
-                print "The percentage of activations among all infections is " + str(round(perc_activation, 2)) + "%"
+                print("The percentage of activations among all infections is " + str(round(perc_activation, 2)) + "%")
 
         # change status file name when simulation completed
         if self.status_file_created:
@@ -619,7 +619,7 @@ class Model:
 
             if self.get_current_date() >= self.params['prevalence_by_age_record_time'] and not self.prevalence_by_age_recorded:
                 self.record_tb_prevalence_by_age()
-                print "Prevalence by age recorded"
+                print("Prevalence by age recorded")
                 self.prevalence_by_age_recorded = True
 
             if self.time > (float(self.last_year_completed + 1) * 365.25):  # one year has been completed
@@ -656,10 +656,10 @@ class Model:
                 if not os.path.exists(file_path):
                     exit('Process exit from model.py: "keep_running" file was deleted')
                 if self.params['print_time']:
-                    print self.scenario + ' run ' + str(self.i_run) + ': year ' + str(self.last_year_completed) + \
+                    print(self.scenario + ' run ' + str(self.i_run) + ': year ' + str(self.last_year_completed) + \
                           ' (' + str(int(self.get_current_date())) + ') completed. Absolute tb_prevalence: ' + \
                           str(int(self.tb_prevalence)) + ' (' + \
-                          str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)'
+                          str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)')
                     if os.name != 'nt':  # 'nt' for windows system
                         self.write_status_file()
 
@@ -675,8 +675,8 @@ class Model:
         # self.check_school_ages() # debugging
 
     def stop_running_model(self):
-        print "!!!!!!!!!!!!!!!!!!!!      Stopping model run " + str(self.i_run) + " of scenario " + self.scenario
-        print "!!!!!!!!!!!!!!!!!!!!      at time: " + str(self.time)
+        print("!!!!!!!!!!!!!!!!!!!!      Stopping model run " + str(self.i_run) + " of scenario " + self.scenario)
+        print("!!!!!!!!!!!!!!!!!!!!      at time: " + str(self.time))
         # record contacts now if requested
         if self.params['plot_contact_heatmap']:
             self.record_all_contacts()  # contacts occurring over the last time-step are recorded
@@ -690,11 +690,11 @@ class Model:
         stop = False
         if self.timeseries_log['tb_prevalence'][-1] >= self.params['prevalence_max']:
             stop = True
-            print "Model run will be forced to stop because tb prevalence is too high."
-        if self.tb_prevalence == 0 and len(self.programmed_events['activation'].values()) == 0 and self.time > 365.25*(
+            print("Model run will be forced to stop because tb prevalence is too high.")
+        if self.tb_prevalence == 0 and len(list(self.programmed_events['activation'].values())) == 0 and self.time > 365.25*(
             self.params['duration_burning_demo'] + self.params['duration_burning_tb'] + 1.) and self.params['transmission']:
             stop = True
-            print "Model run will be forced to stop because there is no more TB."
+            print("Model run will be forced to stop because there is no more TB.")
         return stop
 
     def check_individuals(self):
@@ -710,7 +710,7 @@ class Model:
         self.prop_under_5 = 0.
 
         # loop through all individuals
-        for ind_id, ind in self.individuals.iteritems():
+        for ind_id, ind in self.individuals.items():
             age = ind.get_age_in_years(self.time)
             self.mean_age += age
             if age < 5.:
@@ -835,7 +835,7 @@ class Model:
         event_type_individual = event_type
         if event_type == 'tb_death':
             event_type_individual = 'death'
-        if self.individuals[ind_id].programmed[event_type_individual] in self.programmed_events[event_type].keys():
+        if self.individuals[ind_id].programmed[event_type_individual] in list(self.programmed_events[event_type].keys()):
             self.programmed_events[event_type][self.individuals[ind_id].programmed[event_type_individual]].append(ind_id)
         else:
             self.programmed_events[event_type][self.individuals[ind_id].programmed[event_type_individual]] = [ind_id]
@@ -853,7 +853,7 @@ class Model:
             n_hh_to_remove = current_n_hh - ideal_nb_hh
             hh_ids_to_remove = [hh_id for i, hh_id in enumerate(self.empty_households) if i+1 <= n_hh_to_remove]
             for hh_id in hh_ids_to_remove:
-                if hh_id in self.eligible_hh_for_birth.keys():
+                if hh_id in list(self.eligible_hh_for_birth.keys()):
                     del self.eligible_hh_for_birth[hh_id]
                 self.empty_households = [hh for hh in self.empty_households if hh != hh_id]
                 del self.households[hh_id]
@@ -877,7 +877,7 @@ class Model:
         dictionary accordingly.
          This method does not make individuals move home. It only add them to a queue.
         """
-        for leave_home_time in [d for d in self.programmed_events['leave_home'].keys() if d <= self.time]:
+        for leave_home_time in [d for d in list(self.programmed_events['leave_home'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['leave_home'][leave_home_time]:
                 self.individuals_want_to_move[ind_id] = self.time
             del self.programmed_events['leave_home'][leave_home_time]
@@ -952,9 +952,9 @@ class Model:
         n_screened_individuals = int(round((self.params['mass_pt_screening_rate'] / 100.) * self.population \
                                        * self.params['time_step'] / 365.25))
         if self.params['subgroup_for_mass_pt'] == 'all':  # screening applies to all
-            screened_individuals = np.random.choice(self.individuals.keys(), n_screened_individuals, replace=False)
+            screened_individuals = np.random.choice(list(self.individuals.keys()), n_screened_individuals, replace=False)
         else:   # screening applies to specific groups
-            ind_ids = range(int(self.population))
+            ind_ids = list(range(int(self.population)))
             np.random.shuffle(ind_ids)
             n_recorded = 0
             n_tried = 0
@@ -966,7 +966,7 @@ class Model:
                     n_recorded += 1
                 n_tried += 1
                 if n_tried == self.population + 1:
-                    print "Could not find enough individuals to screen!"
+                    print("Could not find enough individuals to screen!")
                     exit('Program stopped')
 
         return screened_individuals
@@ -980,13 +980,13 @@ class Model:
             keys_to_loop.append('leave_work')
 
         for key in keys_to_loop:
-            if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
+            if self.individuals[ind_id].programmed[key] in list(self.programmed_events[key].keys()):
                 self.programmed_events[key][self.individuals[ind_id].programmed[key]].append(ind_id)
             else:
                 self.programmed_events[key][self.individuals[ind_id].programmed[key]] = [ind_id]
 
     def trigger_programmed_go_to_school(self):
-        for go_to_school_time in [d for d in self.programmed_events['go_to_school'].keys() if d <= self.time]:
+        for go_to_school_time in [d for d in list(self.programmed_events['go_to_school'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['go_to_school'][go_to_school_time]:
                 self.make_individual_go_to_school(ind_id)
             del self.programmed_events['go_to_school'][go_to_school_time]
@@ -997,7 +997,7 @@ class Model:
         self.make_individual_enter_group(ind_id, group_id)
 
     def trigger_programmed_leave_school(self):
-        for leave_school_time in [d for d in self.programmed_events['leave_school'].keys() if d <= self.time]:
+        for leave_school_time in [d for d in list(self.programmed_events['leave_school'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['leave_school'][leave_school_time]:
                 self.make_individual_leave_school(ind_id)
             del self.programmed_events['leave_school'][leave_school_time]
@@ -1016,7 +1016,7 @@ class Model:
         self.make_individual_enter_group(ind_id, group_id)
 
     def trigger_programmed_leave_work(self):
-        for leave_work_time in [d for d in self.programmed_events['leave_work'].keys() if d <= self.time]:
+        for leave_work_time in [d for d in list(self.programmed_events['leave_work'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['leave_work'][leave_work_time]:
                 self.make_individual_leave_work(ind_id)
             del self.programmed_events['leave_work'][leave_work_time]
@@ -1044,7 +1044,7 @@ class Model:
         The individuals listed in the programmed_events['activation'] dictionary for the times elapsed since the last iteration time
         have to activate TB.
         """
-        for activation_time in [d for d in self.programmed_events['activation'].keys() if d <= self.time]:
+        for activation_time in [d for d in list(self.programmed_events['activation'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['activation'][activation_time]:
                 self.make_individual_activate_tb(ind_id)
             del self.programmed_events['activation'][activation_time]
@@ -1068,11 +1068,11 @@ class Model:
 
         tb_outcome = self.individuals[ind_id].define_tb_outcome(time=self.time, params=self.params,
                                                                 tx_success_prop=self.scale_up_functions_current_time['treatment_success_prop'])
-        if 'time_active' in tb_outcome.keys():
+        if 'time_active' in list(tb_outcome.keys()):
             self.time_active['total_n_cases'] += 1
             self.time_active['total_time_active'] += tb_outcome['time_active']
 
-        if 'dr_amplification' in tb_outcome.keys():
+        if 'dr_amplification' in list(tb_outcome.keys()):
             self.tb_prevalence_ds -= 1  # should be improved in the future as dr_amplification should occur later at treatment
             self.tb_prevalence_mdr += 1
 
@@ -1085,13 +1085,13 @@ class Model:
         if self.stopped_simulation:
             return
 
-        print "Start recording contact patterns"
+        print("Start recording contact patterns")
 
         n_recorded_index = int(ceil(self.population * self.params['perc_sampled_for_contacts'] / 100.))
-        recorded_ind_ids = np.random.choice(self.individuals.keys(), n_recorded_index, replace=False)
+        recorded_ind_ids = np.random.choice(list(self.individuals.keys()), n_recorded_index, replace=False)
 
         # initialisation
-        for location in self.contact_matrices['contact'].keys():
+        for location in list(self.contact_matrices['contact'].keys()):
             self.contact_matrices['contact'][location] = np.zeros((101, 101))  # null matrix 100x100
             self.n_contacts['contact'][location] = 0
 
@@ -1100,7 +1100,7 @@ class Model:
             self.update_contact_matrices(ind_id, contact_dict)
 
             # count contacts
-            for location in self.n_contacts['contact'].keys():
+            for location in list(self.n_contacts['contact'].keys()):
                 self.n_contacts['contact'][location] += sum(contact_dict[location].values())
 
             if os.name == 'nt':  # only on local windows machine
@@ -1120,11 +1120,11 @@ class Model:
         return: a dicitonary {id1: nb_contacts1, id2: nb_contacts2}
         """
         contact_dict = {}
-        for location in self.contact_matrices['contact'].keys():
+        for location in list(self.contact_matrices['contact'].keys()):
             contact_dict[location] = {}
         if infectious_only:
             start_recording = max(self.individuals[ind_id].programmed['activation'], self.time - self.params['time_step'])
-            if 'recovery' not in self.individuals[ind_id].programmed.keys():
+            if 'recovery' not in list(self.individuals[ind_id].programmed.keys()):
                 end_recording = min(self.individuals[ind_id].programmed['death'], self.time)
             else:
                 end_recording = min(self.individuals[ind_id].programmed['recovery'], self.individuals[ind_id].programmed['death'],
@@ -1244,8 +1244,8 @@ class Model:
         know whether they are associated with transmission. This method will trigger possible transmission events.
         """
         index_age = floor(self.individuals[index_id].get_age_in_years(self.time))
-        for location in contact_dict.keys():
-            for contacted_id, nb_contacts in contact_dict[location].iteritems():
+        for location in list(contact_dict.keys()):
+            for contacted_id, nb_contacts in contact_dict[location].items():
                 transmission_proba = self.params['proba_infection_per_contact'] *\
                                      self.individuals[contacted_id].get_relative_susceptibility(self.time, self.params) *\
                                      relative_infectiousness
@@ -1263,11 +1263,11 @@ class Model:
                         self.contact_matrices['transmission'][location][int(index_age), int(contact_age)] += 1
                     # diseased (or future diseased) individuals are not affected with reinfection
                     if not self.individuals[contacted_id].active_tb and 'activation' not in \
-                            self.individuals[contacted_id].programmed.keys():
+                            list(self.individuals[contacted_id].programmed.keys()):
                         if not self.individuals[contacted_id].ltbi:  # This is a newly infected individual
                             self.ltbi_prevalence += 1
                         self.infect_an_individual(contacted_id, strain=self.individuals[index_id].tb_strain)
-                        if 'activation' in self.individuals[contacted_id].programmed.keys():  # responsible for a new TB case
+                        if 'activation' in list(self.individuals[contacted_id].programmed.keys()):  # responsible for a new TB case
                             self.n_contacts['transmission_end_tb'][location] += 1
                             if index_age <= 100. and contact_age <= 100.:
                                 self.contact_matrices['transmission_end_tb'][location][int(index_age), int(contact_age)] += 1
@@ -1283,8 +1283,8 @@ class Model:
         """
         age_ind_id = floor(self.individuals[ind_id].get_age_in_years(self.time))
         if age_ind_id <= 100.:
-            for location in contact_dict.keys():
-                for contacted_id, nb_contacts in contact_dict[location].iteritems():
+            for location in list(contact_dict.keys()):
+                for contacted_id, nb_contacts in contact_dict[location].items():
                     age_contacted = floor(self.individuals[contacted_id].get_age_in_years(self.time))
                     if age_contacted <= 100.:
                         self.contact_matrices['contact'][location][int(age_ind_id), int(age_contacted)] += nb_contacts
@@ -1294,7 +1294,7 @@ class Model:
         The individuals listed in the programmed_deaths dictionary for the times elapsed since the last iteration time
         have to die.
         """
-        for death_time in [d for d in self.programmed_events['death'].keys() if d <= self.time]:
+        for death_time in [d for d in list(self.programmed_events['death'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['death'][death_time]:
                 self.make_individual_die(ind_id)
             del self.programmed_events['death'][death_time]
@@ -1304,7 +1304,7 @@ class Model:
         The individuals listed in the programmed_deaths dictionary for the times elapsed since the last iteration time
         have to die.
         """
-        for death_time in [d for d in self.programmed_events['tb_death'].keys() if d <= self.time]:
+        for death_time in [d for d in list(self.programmed_events['tb_death'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['tb_death'][death_time]:
                 self.make_individual_die(ind_id)
             del self.programmed_events['tb_death'][death_time]
@@ -1345,7 +1345,7 @@ class Model:
 
         # The previous household may become empty and eligible for a new couple to move in
         if self.households[previous_hh_id].size == 0:
-            if previous_hh_id in self.eligible_hh_for_birth.keys():
+            if previous_hh_id in list(self.eligible_hh_for_birth.keys()):
                 self.households[previous_hh_id].repopulate_date = -1.e8
                 del(self.eligible_hh_for_birth[previous_hh_id])
             self.empty_households.append(previous_hh_id)
@@ -1360,15 +1360,15 @@ class Model:
         Individual ind_id is about to die. We need to clean up a few dicitonaries.
         """
 
-        keys_to_loop = self.programmed_events.keys()
+        keys_to_loop = list(self.programmed_events.keys())
         for key in keys_to_loop:
-            if key in self.individuals[ind_id].programmed.keys():
-                if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
+            if key in list(self.individuals[ind_id].programmed.keys()):
+                if self.individuals[ind_id].programmed[key] in list(self.programmed_events[key].keys()):
                     self.programmed_events[key][self.individuals[ind_id].programmed[key]] = \
                         [ids for ids in self.programmed_events[key][self.individuals[ind_id].programmed[key]]
                          if ids != ind_id]
 
-        if ind_id in self.individuals_want_to_move.keys():
+        if ind_id in list(self.individuals_want_to_move.keys()):
             del(self.individuals_want_to_move[ind_id])
 
     def remove_from_groups(self, ind_id):
@@ -1396,7 +1396,7 @@ class Model:
         if hh_id in self.empty_households:
             self.empty_households = [h for h in self.empty_households if h != hh_id]
 
-        if hh_id in self.eligible_hh_for_birth.keys():
+        if hh_id in list(self.eligible_hh_for_birth.keys()):
             del self.eligible_hh_for_birth[hh_id]
 
     def update_programmed_events(self, event_dict, ind_id=None):
@@ -1404,15 +1404,15 @@ class Model:
         update the programmed events dictionary.
         :param event_dict keys are the type of event ("death",...) and the values are the dates of the events
         """
-        if 'death' in event_dict.keys():
+        if 'death' in list(event_dict.keys()):
             self.program_tb_death(ind_id, event_dict['death'])
-        if 'recovery' in event_dict.keys():
+        if 'recovery' in list(event_dict.keys()):
             self.add_recovery_to_programmed_recoveries(ind_id, event_dict['recovery'])
-        if 'detection' in event_dict.keys():
+        if 'detection' in list(event_dict.keys()):
             self.add_detection_to_programmed_detections(ind_id, event_dict['detection'])
 
     def add_detection_to_programmed_detections(self, ind_id, detection_date):
-        if detection_date in self.programmed_events['detection'].keys():
+        if detection_date in list(self.programmed_events['detection'].keys()):
             self.programmed_events['detection'][detection_date].append(ind_id)
         else:
             self.programmed_events['detection'][detection_date] = [ind_id]
@@ -1422,7 +1422,7 @@ class Model:
         The individuals listed in the programmed_recoveries dictionary for the times elapsed since the last iteration time
         have to recover from TB.
         """
-        for detection_time in [d for d in self.programmed_events['detection'].keys() if d <= self.time]:
+        for detection_time in [d for d in list(self.programmed_events['detection'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['detection'][detection_time]:
                 self.detect_individual(ind_id)
             del self.programmed_events['detection'][detection_time]
@@ -1450,11 +1450,11 @@ class Model:
         for contact_type in relevant_contact_types:
             if self.params['agegroup_for_contact_tracing_pt'] == 'all':
                 relevant_contacts = list(self.individuals[ind_id].contacts_while_tb[contact_type])
-                relevant_contacts = [ind for ind in relevant_contacts if ind in self.individuals.keys()]
+                relevant_contacts = [ind for ind in relevant_contacts if ind in list(self.individuals.keys())]
             else:
                 relevant_contacts = []
                 for contact_id in self.individuals[ind_id].contacts_while_tb[contact_type]:
-                    if contact_id in self.individuals.keys():
+                    if contact_id in list(self.individuals.keys()):
                         if self.individuals[contact_id].is_in_subgroup(
                                 subgroup=self.params['agegroup_for_contact_tracing_pt'], time=self.time):
                             relevant_contacts.append(contact_id)
@@ -1486,7 +1486,7 @@ class Model:
                 self.provide_preventive_treatment(contact_id, delayed=False)
 
     def add_recovery_to_programmed_recoveries(self, ind_id, recovery_date):
-        if recovery_date in self.programmed_events['recovery'].keys():
+        if recovery_date in list(self.programmed_events['recovery'].keys()):
             self.programmed_events['recovery'][recovery_date].append(ind_id)
         else:
             self.programmed_events['recovery'][recovery_date] = [ind_id]
@@ -1496,7 +1496,7 @@ class Model:
         The individuals listed in the programmed_recoveries dictionary for the times elapsed since the last iteration time
         have to recover from TB.
         """
-        for recovery_time in [d for d in self.programmed_events['recovery'].keys() if d <= self.time]:
+        for recovery_time in [d for d in list(self.programmed_events['recovery'].keys()) if d <= self.time]:
             for ind_id in self.programmed_events['recovery'][recovery_time]:
                 self.tb_prevalence -= 1
                 if self.individuals[ind_id].tb_strain == 'ds':
@@ -1533,12 +1533,12 @@ class Model:
         """
         self.individuals[ind_id].infect_individual(self.time, self.params, strain)
         self.activation_stats['n_infections'] += 1
-        if 'activation' in self.individuals[ind_id].programmed.keys():
+        if 'activation' in list(self.individuals[ind_id].programmed.keys()):
             self.add_activation_to_programmed_activations(ind_id)
             self.activation_stats['n_activations'] += 1
 
     def add_activation_to_programmed_activations(self, ind_id):
-        if self.individuals[ind_id].programmed['activation'] in self.programmed_events['activation'].keys():
+        if self.individuals[ind_id].programmed['activation'] in list(self.programmed_events['activation'].keys()):
             self.programmed_events['activation'][self.individuals[ind_id].programmed['activation']].append(ind_id)
         else:
             self.programmed_events['activation'][self.individuals[ind_id].programmed['activation']] = [ind_id]
@@ -1571,15 +1571,15 @@ class Model:
         else:
             self.checkpoint_outcomes['ages'][self.time] = [
                 individual.get_age_in_years(self.time) for
-                individual in self.individuals.values()]
+                individual in list(self.individuals.values())]
 
         # Household size distribition
-        self.checkpoint_outcomes['household_sizes'][self.time] = [h.size for h in self.households.values()]
+        self.checkpoint_outcomes['household_sizes'][self.time] = [h.size for h in list(self.households.values())]
 
         # School and worplace sizes
         for group_type in ['school', 'workplace']:
             self.checkpoint_outcomes[group_type + '_sizes'][self.time] = [len(group) for group_id, group in
-                                                                          self.groups.iteritems() if
+                                                                          self.groups.items() if
                                                                           self.group_types[group_id] == group_type]
 
     def get_ages_by_household(self):
@@ -1588,7 +1588,7 @@ class Model:
         """
         ages_by_household = []
 
-        for i, hh in self.households.iteritems():
+        for i, hh in self.households.items():
             ages_by_household.append([])
             for ind_id in hh.individual_ids:
                 ages_by_household[i].append(round(self.individuals[ind_id].get_age_in_years(self.time)))
@@ -1600,7 +1600,7 @@ class Model:
         """
         n_steps = int(round(self.moving_average_width / self.params['time_step']))
         if n_steps > 0:
-            for series_name in self.timeseries_log.keys():
+            for series_name in list(self.timeseries_log.keys()):
                 if series_name in self.timeseries_to_average:
                     y = copy.copy(self.timeseries_log[series_name])
                     for i, time in enumerate(self.timeseries_log['times']):
@@ -1612,7 +1612,7 @@ class Model:
         """
         Clean some time-series such as incidence that has a peak at the very first time-step.
         """
-        if 'tb_incidence' in self.timeseries_log.keys():
+        if 'tb_incidence' in list(self.timeseries_log.keys()):
             self.timeseries_log['tb_incidence'][0] = 0.
 
     def turn_model_into_dict(self):
@@ -1650,26 +1650,26 @@ class Model:
         """
         For debugging only. Check that all individuals in workplaces are "adult"
         """
-        print self.time
+        print(self.time)
         for w in self.groups_by_type['workplaces']:
             for ind_id in self.groups[w]:
-                print "________"
-                print str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time))
+                print("________")
+                print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
 
     def check_school_ages(self):
         """
         For debugging only. Check that all individuals in schools are aged between 5 and 18
         """
-        print self.time
+        print(self.time)
         for w in self.groups_by_type['schools']:
             for ind_id in self.groups[w]:
                 if self.individuals[ind_id].get_age_in_years(self.time)<5 or self.individuals[ind_id].get_age_in_years(self.time)>18:
-                    print "////////////////////"
-                    print str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time))
+                    print("////////////////////")
+                    print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
 
     def check_calibration_targets(self):
         current_date = self.get_current_date()
-        for y in self.remaining_calibration_targets.keys():
+        for y in list(self.remaining_calibration_targets.keys()):
             if y <= current_date:
                 for target in self.remaining_calibration_targets[y]:
                     if not self.is_target_verified(target):
@@ -1678,8 +1678,8 @@ class Model:
 
     def is_target_verified(self, target):
         pass_test = False
-        print "Check target for year " + str(target['year'])
-        if 'category' in target.keys():
+        print("Check target for year " + str(target['year']))
+        if 'category' in list(target.keys()):
             if target['indicator'] == 'tb_prevalence':
                 abs_prev = 0
                 for ind_id in self.active_cases:
@@ -1695,16 +1695,16 @@ class Model:
                     nb_kids += len(self.ind_by_agegroup[age_cat])
                 deno = self.population - nb_kids
                 model_measure = abs_prev * 1.e5 / deno
-                print model_measure
+                print(model_measure)
         else:
             model_measure = self.timeseries_log[target['indicator']][-1]
         if target['min_accepted_value'] <= model_measure <= target['max_accepted_value']:
             pass_test = True
-            print "Target checked"
+            print("Target checked")
         else:
-            print "Model estimate for " + target['indicator'] + " in " + str(target['year']) + " must be in (" +\
+            print("Model estimate for " + target['indicator'] + " in " + str(target['year']) + " must be in (" +\
                   str(target['min_accepted_value']) + "-" + str(target['max_accepted_value']) + "). Value: " +\
-                  str(model_measure)
+                  str(model_measure))
         return pass_test
 
     def store_calibrated_model(self):
@@ -1712,8 +1712,8 @@ class Model:
         If the calibration conditions are verified, the fully run model is stored
         :return:
         """
-        print "!!!!!!!!!  We have a calibrated model !!!!!!!!!"
-        print "Saving model run..."
+        print("!!!!!!!!!  We have a calibrated model !!!!!!!!!")
+        print("Saving model run...")
         dir_path = os.path.join('calibrated_models')
         # dir_path = os.path.join(base_path, self.params['project_name'], self.scenario)
         if not os.path.exists(dir_path):
@@ -1733,10 +1733,10 @@ class Model:
         del self.birth_numbers_function
         dill.dump(self, file_stream)
         file_stream.close()
-        print "Calibrated model successfully saved for scenario: " + self.scenario
+        print("Calibrated model successfully saved for scenario: " + self.scenario)
         self.has_been_stored = True
         if self.params['stop_running_after_calibration'] and self.params['running_mode'] != 'run_ks_based_calibration':
-            print "Simulation will now be stopped as a calibrated model has been found."
+            print("Simulation will now be stopped as a calibrated model has been found.")
             file_name = os.path.join('outputs', self.params['project_name'], 'keep_running.txt')
             os.remove(file_name)
             exit()
@@ -1797,7 +1797,7 @@ class TbModel(Model):
         for organ in ['_smearpos', '_closed_tb']:
             cdr = self.scale_up_functions_current_time['cdr_prop']
             if cdr > 0.95:
-                print "WARNING: a CDR too close to 100% will lead to no contact identified as detection occurs very quickly"
+                print("WARNING: a CDR too close to 100% will lead to no contact identified as detection occurs very quickly")
             assert cdr <= 1., "Case detection must be <= 1"
             if cdr == 1.:
                 self.params['lambda_timeto_detection' + organ] = 1.e9  # some big value
@@ -1829,11 +1829,11 @@ class TbModel(Model):
         self.ltbi_age_stats_have_been_recorded = False
 
     def record_ltbi_ages(self):
-        for individual in self.individuals.values():
+        for individual in list(self.individuals.values()):
             if individual.ltbi:
                 age = individual.get_age_in_years(self.time)
                 self.ltbi_age_stats['ltbi_ages'].append(age)
-                if 'activation' in individual.programmed.keys():
+                if 'activation' in list(individual.programmed.keys()):
                     self.ltbi_age_stats['ending_tb_ages'].append(age)
 
     def record_tb_prevalence_by_age(self):
