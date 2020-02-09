@@ -1,4 +1,6 @@
 outputs/*
 calibrated_models/*
 .idea/*
+.vscode/*
 *.pyc
+*.bak
