@@ -1,4 +1,4 @@
-name: snap-tb3
+name: snap-tb
 channels:
   - conda-forge
   - defaults
