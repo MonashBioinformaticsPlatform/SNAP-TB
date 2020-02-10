@@ -485,12 +485,13 @@ class Model:
             hh_ids = list(self.eligible_hh_for_birth.keys())
             hh_sizes = list(self.eligible_hh_for_birth.values())
 
-            probas = [1./float(x) for x in hh_sizes]
-            probas = [x / sum(probas) for x in probas]
+            probas_div = np.reciprocal(np.array(hh_sizes, dtype = np.float))
+            probas_div_sum = np.sum(probas_div)
+            probas_out = np.true_divide(probas_div, probas_div_sum)
 
-            draw = np.random.multinomial(1, probas)
-            index = int(np.nonzero(draw)[0])
-            hh_id = hh_ids[index]
+            draw = np.random.multinomial(1, probas_out)
+            ind = int(np.nonzero(draw)[0])
+            hh_id = hh_ids[ind]
         else:
             hh_size = 0
             while hh_size == 0:
@@ -835,8 +836,8 @@ class Model:
         event_type_individual = event_type
         if event_type == 'tb_death':
             event_type_individual = 'death'
-        if self.individuals[ind_id].programmed[event_type_individual] in list(self.programmed_events[event_type].keys()):
-            self.programmed_events[event_type][self.individuals[ind_id].programmed[event_type_individual]].append(ind_id)
+        if self.individuals[ind_id].programmed[event_type_individual] in self.programmed_events[event_type].keys():
+            self.programmed_events[event_type][self.individuals[ind_id].programmed[event_type_individual]].append(ind_id) #This might be slow
         else:
             self.programmed_events[event_type][self.individuals[ind_id].programmed[event_type_individual]] = [ind_id]
 
@@ -980,7 +981,7 @@ class Model:
             keys_to_loop.append('leave_work')
 
         for key in keys_to_loop:
-            if self.individuals[ind_id].programmed[key] in list(self.programmed_events[key].keys()):
+            if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
                 self.programmed_events[key][self.individuals[ind_id].programmed[key]].append(ind_id)
             else:
                 self.programmed_events[key][self.individuals[ind_id].programmed[key]] = [ind_id]
@@ -1212,14 +1213,20 @@ class Model:
         contact_rates = self.contact_rates_matrices['other_locations'][Prem_col_index, :] * recording_duration
         nb_of_contacts_to_draw = np.random.poisson(lam=contact_rates)  # nb of contacts per age category
 
+        # Get a random subsample
+        # This does appear to change the output
+        def _random_subsample(arr, n):
+            extract = np.random.permutation(np.arange(n))[:n]
+            return np.take(arr, extract)
+
         for i in range(16):
-            if nb_of_contacts_to_draw[i] > 0.:
+            if nb_of_contacts_to_draw[i] > 0:
                 age_cat = "X_" + str(i + 1)
                 if len(self.ind_by_agegroup[age_cat]) <= nb_of_contacts_to_draw[i]:
                     contact_ids = self.ind_by_agegroup[age_cat]
                 else:
-                    contact_ids = np.random.choice(self.ind_by_agegroup[age_cat], size=nb_of_contacts_to_draw[i],
-                                                   replace=False)
+                    contact_ids = _random_subsample(self.ind_by_agegroup[age_cat], nb_of_contacts_to_draw[i])
+
                 for contact_id in contact_ids:
                     if contact_id != ind_id:
                         community_contacts[contact_id] = 1  # we assume a single contact
@@ -1360,15 +1367,15 @@ class Model:
         Individual ind_id is about to die. We need to clean up a few dicitonaries.
         """
 
-        keys_to_loop = list(self.programmed_events.keys())
+        keys_to_loop = self.programmed_events.keys()
         for key in keys_to_loop:
-            if key in list(self.individuals[ind_id].programmed.keys()):
-                if self.individuals[ind_id].programmed[key] in list(self.programmed_events[key].keys()):
+            if key in self.individuals[ind_id].programmed.keys():
+                if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
                     self.programmed_events[key][self.individuals[ind_id].programmed[key]] = \
                         [ids for ids in self.programmed_events[key][self.individuals[ind_id].programmed[key]]
                          if ids != ind_id]
 
-        if ind_id in list(self.individuals_want_to_move.keys()):
+        if ind_id in self.individuals_want_to_move.keys():
             del(self.individuals_want_to_move[ind_id])
 
     def remove_from_groups(self, ind_id):
