@@ -4,3 +4,4 @@ calibrated_models/*
 .vscode/*
 *.pyc
 *.bak
+~$*.xlsx
