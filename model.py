@@ -1362,17 +1362,9 @@ class Model:
 
         age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time), 'prem')
         
-        #Check if sorted
-        # if not all(self.ind_by_agegroup[age_cat][i] <= self.ind_by_agegroup[age_cat][i+1] for i in range(len(self.ind_by_agegroup[age_cat])-1)):
-            # raise Exception('List is not sorted which is super bad!')
-        
-
         if not _has_index(self.ind_by_agegroup[age_cat], ind_id):
             age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
         
-        # if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
-        #     age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
-        # self.ind_by_agegroup[age_cat] = [ind for ind in self.ind_by_agegroup[age_cat] if ind != ind_id]
         try:
             self.ind_by_agegroup[age_cat].remove(ind_id) # if self.ind_by_agegroup[age_cat] is not None else None
         except ValueError:
