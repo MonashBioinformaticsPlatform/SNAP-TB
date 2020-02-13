@@ -12,6 +12,7 @@ from importData import get_agecategory
 import dill
 import time
 from calibration_targets import calib_targets
+import bisect
 
 #Set randomness for testing
 np.random.seed(1580943402)
@@ -104,6 +105,23 @@ class Model:
         self.ltbi_age_stats = {'ltbi_ages': [], 'ending_tb_ages': []}
         self.ltbi_age_stats_have_been_recorded = False
         self.prevalence_by_age_recorded = False
+
+    # ___________________________
+    # Helper functions
+    # Get a uniformly random random subsample
+    # This does appear to change the output from using np.random.choice
+    # Not sure how this compares to choice if we doing lots of them at once
+    # arr - Array to subsample
+    # n - number to select
+    def _random_subsample(self, arr, n):
+        new_range = np.arange(len(arr))
+        extract = np.random.permutation(new_range)[:n]
+        out = np.array(extract, int)
+        extract = np.nditer(extract[:n], flags=['c_index'])
+        while not extract.finished:
+            out[extract.index] = arr[extract[0]]
+            extract.iternext()
+        return out
 
     #  ________________________________________________________________
     #               Model initialisation
@@ -475,6 +493,7 @@ class Model:
                     h.size > 0 and (self.time - h.last_baby_time) > h.minimum_time_to_next_baby:
                 self.eligible_hh_for_birth[h.id] = h.size
 
+    #I think this one is quite hard to optimise further wihout dropping the multinomial - not actually sure why we want it
     def pick_eligible_household_for_birth(self):
         """
         This method will randomly pick an eligible household among the ones listed in self.eligible_hh_for_birth.
@@ -483,19 +502,21 @@ class Model:
         """
         if len(self.eligible_hh_for_birth) > 0:
             hh_ids = list(self.eligible_hh_for_birth.keys())
-            hh_sizes = list(self.eligible_hh_for_birth.values())
+            hh_sizes = np.fromiter(self.eligible_hh_for_birth.values(), int)
 
-            probas_div = np.reciprocal(np.array(hh_sizes, dtype = np.float))
+            probas_div = 1. / hh_sizes
             probas_div_sum = np.sum(probas_div)
             probas_out = np.true_divide(probas_div, probas_div_sum)
-
             draw = np.random.multinomial(1, probas_out)
             ind = int(np.nonzero(draw)[0])
             hh_id = hh_ids[ind]
         else:
             hh_size = 0
-            while hh_size == 0:
-                hh_id = np.random.choice(list(self.households.keys()), 1)[0]
+            household_keys = list(self.households.keys())
+            household_keys_length = len(household_keys)
+            while hh_size == 0: #Should get average number of times this fires - If it's a lot maybe we should generate a bunch of 'extract values' first.
+                extract = np.random.randint(0, household_keys_length, 1)
+                hh_id = household_keys[extract[0]]
                 hh_size = self.households[hh_id].size
 
         return hh_id
@@ -1213,19 +1234,13 @@ class Model:
         contact_rates = self.contact_rates_matrices['other_locations'][Prem_col_index, :] * recording_duration
         nb_of_contacts_to_draw = np.random.poisson(lam=contact_rates)  # nb of contacts per age category
 
-        # Get a random subsample
-        # This does appear to change the output
-        def _random_subsample(arr, n):
-            extract = np.random.permutation(np.arange(n))[:n]
-            return np.take(arr, extract)
-
         for i in range(16):
             if nb_of_contacts_to_draw[i] > 0:
                 age_cat = "X_" + str(i + 1)
                 if len(self.ind_by_agegroup[age_cat]) <= nb_of_contacts_to_draw[i]:
                     contact_ids = self.ind_by_agegroup[age_cat]
                 else:
-                    contact_ids = _random_subsample(self.ind_by_agegroup[age_cat], nb_of_contacts_to_draw[i])
+                    contact_ids = self._random_subsample(self.ind_by_agegroup[age_cat], nb_of_contacts_to_draw[i])
 
                 for contact_id in contact_ids:
                     if contact_id != ind_id:
@@ -1322,6 +1337,13 @@ class Model:
         individual ind_id and generates a newborn in the same household. The newborn individual keeps
         the same ind_id
         """
+        def _has_index(a, x):
+            'Locate the leftmost value exactly equal to x'
+            i = bisect.bisect_left(a, x)
+            if i != len(a) and a[i] == x:
+                return True
+            return False
+
         if self.individuals[ind_id].active_tb:
             self.tb_prevalence -= 1
             if self.individuals[ind_id].tb_strain == 'ds':
@@ -1339,15 +1361,32 @@ class Model:
         self.remove_from_groups(ind_id)
 
         age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time), 'prem')
-        if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
+        
+        #Check if sorted
+        # if not all(self.ind_by_agegroup[age_cat][i] <= self.ind_by_agegroup[age_cat][i+1] for i in range(len(self.ind_by_agegroup[age_cat])-1)):
+            # raise Exception('List is not sorted which is super bad!')
+        
+
+        if not _has_index(self.ind_by_agegroup[age_cat], ind_id):
             age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
-        self.ind_by_agegroup[age_cat] = [ind for ind in self.ind_by_agegroup[age_cat] if ind != ind_id]
+        
+        # if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
+        #     age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
+        # self.ind_by_agegroup[age_cat] = [ind for ind in self.ind_by_agegroup[age_cat] if ind != ind_id]
+        try:
+            self.ind_by_agegroup[age_cat].remove(ind_id) # if self.ind_by_agegroup[age_cat] is not None else None
+        except ValueError:
+                pass
 
         previous_hh_id = self.individuals[ind_id].household_id
         self.households[previous_hh_id].size -= 1
 
-        self.households[previous_hh_id].individual_ids = [i for i in self.households[previous_hh_id].individual_ids \
-                                                          if i != ind_id]
+        # self.households[previous_hh_id].individual_ids = [i for i in self.households[previous_hh_id].individual_ids \
+                                                        #   if i != ind_id]
+        try:
+            self.households[previous_hh_id].individual_ids.remove(ind_id) if self.households[previous_hh_id].individual_ids is not None else None
+        except ValueError:
+                pass
         self.population -= 1
 
         # The previous household may become empty and eligible for a new couple to move in
