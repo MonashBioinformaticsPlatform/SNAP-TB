@@ -493,7 +493,10 @@ class Model:
                     h.size > 0 and (self.time - h.last_baby_time) > h.minimum_time_to_next_baby:
                 self.eligible_hh_for_birth[h.id] = h.size
 
-    #I think this one is quite hard to optimise further wihout dropping the multinomial - not actually sure why we want it
+    # I think this one is quite hard to optimise further wihout dropping the multinomial
+    # @Optimisation - Directly cast hh_sizes to array of int
+    #   Use numpy sum and true_divide
+    #   Removed random.choice for selecting one element from uniform distribution with extract using randint
     def pick_eligible_household_for_birth(self):
         """
         This method will randomly pick an eligible household among the ones listed in self.eligible_hh_for_birth.
@@ -1365,6 +1368,7 @@ class Model:
         if not _has_index(self.ind_by_agegroup[age_cat], ind_id):
             age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
         
+        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
         try:
             self.ind_by_agegroup[age_cat].remove(ind_id) # if self.ind_by_agegroup[age_cat] is not None else None
         except ValueError:
@@ -1373,13 +1377,13 @@ class Model:
         previous_hh_id = self.individuals[ind_id].household_id
         self.households[previous_hh_id].size -= 1
 
-        # self.households[previous_hh_id].individual_ids = [i for i in self.households[previous_hh_id].individual_ids \
-                                                        #   if i != ind_id]
-        try:
-            self.households[previous_hh_id].individual_ids.remove(ind_id) if self.households[previous_hh_id].individual_ids is not None else None
-        except ValueError:
-                pass
-        self.population -= 1
+        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
+        if self.households[previous_hh_id].individual_ids is not None:
+            try:
+                    self.households[previous_hh_id].individual_ids.remove(ind_id)
+            except ValueError:
+                    pass
+            self.population -= 1
 
         # The previous household may become empty and eligible for a new couple to move in
         if self.households[previous_hh_id].size == 0:
