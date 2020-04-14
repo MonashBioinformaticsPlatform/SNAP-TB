@@ -500,7 +500,7 @@ class Model:
     def pick_eligible_household_for_birth(self):
         """
         This method will randomly pick an eligible household among the ones listed in self.eligible_hh_for_birth.
-        The hosuehold of small size will be favored
+        The household of small size will be favored
         :return: a household id
         """
         if len(self.eligible_hh_for_birth) > 0:
@@ -1333,7 +1333,7 @@ class Model:
             for ind_id in self.programmed_events['tb_death'][death_time]:
                 self.make_individual_die(ind_id)
             del self.programmed_events['tb_death'][death_time]
-
+    
     def make_individual_die(self, ind_id):
         """
         Reset the individual characteristics and generate a new dOD. This simulates the death of
