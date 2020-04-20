@@ -1,7 +1,7 @@
 from numpy import random
 
 #Set randomness for testing
-random.seed(1580943402)
+# random.seed(1580943402)
 
 class household:
     def __init__(self, id):

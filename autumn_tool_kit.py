@@ -5,7 +5,7 @@ import pickle
 import numpy
 
 #Set randomness for testing
-random.seed(1580943402)
+# random.seed(1580943402)
 
 '''
 Note that this module is intended only to contain stand-alone functions for use by multiple other modules.

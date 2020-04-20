@@ -15,7 +15,7 @@ from calibration_targets import calib_targets
 import bisect
 
 #Set randomness for testing
-np.random.seed(1580943402)
+# np.random.seed(1580943402)
 
 def age_preference_function(age_difference, sigma):
     """

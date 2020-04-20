@@ -3,7 +3,7 @@ import numpy as np
 import tb_activation
 
 #Set np.randomness for testing
-np.random.seed(1580943402)
+# np.random.seed(1580943402)
 
 def draw_life_duration_using_death_rates():
         """Unused for the moment"""

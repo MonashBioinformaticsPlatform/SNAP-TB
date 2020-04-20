@@ -8,7 +8,7 @@ from multiprocessing import Pool
 from numpy import random, linspace
 
 #Set randomness for testing
-random.seed(1580943402)
+# random.seed(1580943402)
 
 t_0 = time.time()
 last_i_figure = 0
