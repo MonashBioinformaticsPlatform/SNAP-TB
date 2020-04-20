@@ -1340,12 +1340,7 @@ class Model:
         individual ind_id and generates a newborn in the same household. The newborn individual keeps
         the same ind_id
         """
-        def _has_index(a, x):
-            'Locate the leftmost value exactly equal to x'
-            i = bisect.bisect_left(a, x)
-            if i != len(a) and a[i] == x:
-                return True
-            return False
+        # @Reverted function that requires sorted list
 
         if self.individuals[ind_id].active_tb:
             self.tb_prevalence -= 1
@@ -1365,14 +1360,16 @@ class Model:
 
         age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time), 'prem')
         
-        if not _has_index(self.ind_by_agegroup[age_cat], ind_id):
+        # @Reverted function that requires sorted list
+        if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
             age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
         
         # @Optimisation - can be replaced with a list comprehension if this is too unsafe
+        #    This removes the element, and passes if it doesn't exist
         try:
-            self.ind_by_agegroup[age_cat].remove(ind_id) # if self.ind_by_agegroup[age_cat] is not None else None
+            self.ind_by_agegroup[age_cat].remove(ind_id)
         except ValueError:
-                pass
+            pass
 
         previous_hh_id = self.individuals[ind_id].household_id
         self.households[previous_hh_id].size -= 1
@@ -1380,9 +1377,9 @@ class Model:
         # @Optimisation - can be replaced with a list comprehension if this is too unsafe
         if self.households[previous_hh_id].individual_ids is not None:
             try:
-                    self.households[previous_hh_id].individual_ids.remove(ind_id)
+                self.households[previous_hh_id].individual_ids.remove(ind_id)
             except ValueError:
-                    pass
+                pass
             self.population -= 1
 
         # The previous household may become empty and eligible for a new couple to move in
