@@ -4,8 +4,6 @@ python:
   - "3.7"
 
 before_install:
-  # Here we just install Miniconda, which you shouldn't have to change.
-
   - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
   - chmod +x miniconda.sh
   - ./miniconda.sh -b
@@ -18,5 +16,5 @@ install:
   - conda activate snap-tb3
 
 script:
-
-  - test.py  # will run all tests in the package
+  - python3 test.py  # will run all tests in the package
+  - python3 test_output.py #Compare the output file and our saved one
