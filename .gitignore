@@ -1,8 +1,14 @@
-outputs/*
-calibrated_models/*
+#OS related
+.DS_Store
+
+#IDE 
 .idea/*
 .vscode/*
+
+calibrated_models/*
 *.pyc
 *.bak
 ~$*.xlsx
 *.lprof
+*.pickle
+#*.png
