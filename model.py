@@ -15,7 +15,7 @@ from calibration_targets import calib_targets
 import bisect
 
 #Set randomness for testing
-np.random.seed(1580943402)
+# np.random.seed(1580943402)
 
 def age_preference_function(age_difference, sigma):
     """
@@ -455,7 +455,7 @@ class Model:
                 tb_strain = ['ds', 'mdr'][int(np.random.binomial(n=1, p=self.params['init_mdr_perc'] / 100.))]
                 self.individuals[ind].tb_strain = tb_strain
                 self.make_individual_activate_tb(ind, init=True)
-                self.individuals[ind].programmed['activation'] = self.time
+                self.individuals[ind].disease.programmed['activation'] = self.time
 
             # TB activations have triggered decrements in ltbi prevalence. We do not want this in the initialisation phase.
             # self.ltbi_prevalence += self.params['init_n_tb_cases']
@@ -1148,11 +1148,12 @@ class Model:
         for location in list(self.contact_matrices['contact'].keys()):
             contact_dict[location] = {}
         if infectious_only:
-            start_recording = max(self.individuals[ind_id].programmed['activation'], self.time - self.params['time_step'])
-            if 'recovery' not in list(self.individuals[ind_id].programmed.keys()):
+            start_recording = max(self.individuals[ind_id].disease.programmed['activation'], self.time - self.params['time_step'])
+            # if 'recovery' not in list(self.individuals[ind_id].programmed.keys()):
+            if not self.individuals[ind_id].disease.programmed['recovery'] > -1:
                 end_recording = min(self.individuals[ind_id].programmed['death'], self.time)
             else:
-                end_recording = min(self.individuals[ind_id].programmed['recovery'], self.individuals[ind_id].programmed['death'],
+                end_recording = min(self.individuals[ind_id].disease.programmed['recovery'], self.individuals[ind_id].programmed['death'],
                                          self.time)
             recording_duration = max(end_recording - start_recording, 0)
         else:
@@ -1287,12 +1288,13 @@ class Model:
                     if index_age <= 100. and contact_age <= 100.:
                         self.contact_matrices['transmission'][location][int(index_age), int(contact_age)] += 1
                     # diseased (or future diseased) individuals are not affected with reinfection
-                    if not self.individuals[contacted_id].active_tb and 'activation' not in \
-                            list(self.individuals[contacted_id].programmed.keys()):
+                    # if cotacted individual NOT have active TB && NOT programmed for actiavtion
+                    if not self.individuals[contacted_id].active_tb and not self.individuals[contacted_id].disease.programmed['activation'] > -1:
                         if not self.individuals[contacted_id].ltbi:  # This is a newly infected individual
                             self.ltbi_prevalence += 1
                         self.infect_an_individual(contacted_id, strain=self.individuals[index_id].tb_strain)
-                        if 'activation' in list(self.individuals[contacted_id].programmed.keys()):  # responsible for a new TB case
+                        # if 'activation' in list(self.individuals[contacted_id].programmed.keys()):  # responsible for a new TB case
+                        if self.individuals[contacted_id].disease.programmed['activation'] > -1:
                             self.n_contacts['transmission_end_tb'][location] += 1
                             if index_age <= 100. and contact_age <= 100.:
                                 self.contact_matrices['transmission_end_tb'][location][int(index_age), int(contact_age)] += 1
@@ -1482,7 +1484,8 @@ class Model:
             for c_id in hh_contact_ids:
                 if self.individuals[c_id].active_tb:
                     # remove potential programmed detection
-                    if 'detection' in self.individuals[ind_id].programmed.keys():
+                    # if 'detection' in self.individuals[ind_id].programmed.keys():
+                    if self.individuals[ind_id].programmed['detection'] > -1:
                         for date in self.programmed_events['detection'].keys():
                             if ind_id in self.programmed_events['detection'][date]:
                                 self.programmed_events['detection'][date] = [indiv for indiv in
@@ -1605,16 +1608,18 @@ class Model:
         Make individual "ind_id" infected and define the time to potential activation
         """
         self.individuals[ind_id].infect_individual(self.time, self.params, strain)
+        # self.individuals[ind_id].disease.infect_individual(self.time, self.params, strain, self.get_age_in_years(self.time), self.individuals[ind_id].programmed)
         self.activation_stats['n_infections'] += 1
-        if 'activation' in list(self.individuals[ind_id].programmed.keys()):
+        # if 'activation' in list(self.individuals[ind_id].programmed.keys()):
+        if self.individuals[ind_id].disease.programmed['activation'] > -1:
             self.add_activation_to_programmed_activations(ind_id)
             self.activation_stats['n_activations'] += 1
 
     def add_activation_to_programmed_activations(self, ind_id):
-        if self.individuals[ind_id].programmed['activation'] in list(self.programmed_events['activation'].keys()):
-            self.programmed_events['activation'][self.individuals[ind_id].programmed['activation']].append(ind_id)
+        if self.individuals[ind_id].disease.programmed['activation'] in list(self.programmed_events['activation'].keys()):
+            self.programmed_events['activation'][self.individuals[ind_id].disease.programmed['activation']].append(ind_id)
         else:
-            self.programmed_events['activation'][self.individuals[ind_id].programmed['activation']] = [ind_id]
+            self.programmed_events['activation'][self.individuals[ind_id].disease.programmed['activation']] = [ind_id]
 
     def provide_preventive_treatment(self, ind_id, delayed=False):
         """
@@ -1624,7 +1629,7 @@ class Model:
         """
         self.n_pt_provided += 1.
         pre_ltbi = copy.copy(self.individuals[ind_id].ltbi)
-        date_prevented_activation = self.individuals[ind_id].get_preventive_treatment(self.params, time=self.time, delayed=delayed)
+        date_prevented_activation = self.individuals[ind_id].disease.get_preventive_treatment(self.params, time=self.time, delayed=delayed)
         if date_prevented_activation is not None:  # The treatment is successful and useful
             self.programmed_events['activation'][date_prevented_activation] = [ids for ids in \
                                                                                 self.programmed_events['activation'][
@@ -1906,7 +1911,8 @@ class TbModel(Model):
             if individual.ltbi:
                 age = individual.get_age_in_years(self.time)
                 self.ltbi_age_stats['ltbi_ages'].append(age)
-                if 'activation' in list(individual.programmed.keys()):
+                # if 'activation' in list(individual.programmed.keys()):
+                if individual.disease.programmed['activation'] > -1:
                     self.ltbi_age_stats['ending_tb_ages'].append(age)
 
     def record_tb_prevalence_by_age(self):

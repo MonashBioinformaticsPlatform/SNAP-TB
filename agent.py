@@ -1,6 +1,7 @@
 # from numpy import random, nonzero, exp, linspace
 import numpy as np
 import tb_activation
+import disease
 
 #Set np.randomness for testing
 np.random.seed(1580943402)
@@ -30,28 +31,32 @@ def draw_life_duration_using_death_rates():
 class Individual:
     """
     This class defines the individuals
+
+    An individual is intended to only know about its own function. Anything 
+    related to disease is intended to be in a disease object.
     """
     def __init__(self, id, household_id, dOB):
         # individual non TB-specific characteristics
         self.id = id  # integer
         self.household_id = household_id     # integer
         self.dOB = dOB   # integer corresponding to the date of birth
+        self.contacts_while_disease = {'household': set([]), 'school': set([]), 'workplace': set([]), 'community': set([])}
 
         # variables below are not used for the moment
         self.diabetes = False   # boolean
         self.hiv = False    # boolean
 
+        # Create disease object from disease class.
+        self.disease = disease.Disease("TB", {})
+        # is_infected                       T/F
+        # is_latent                         T/F - T is latent, F is active. Some diseases may never beome latent
+        # infected_organs                   string array, None
+        # is_vaccinated                     T/F - is the disease vaccinated
+        # vaccine_immunity_duration         int - in years
+        # disease_strain                    string "ds", "mdr" etc
+        # is_detected                       T/F - is the infection detected
+        # is_treated                        T/F - is the disease treated
         # individual TB-specific characteristics
-        self.vaccinated = False
-        self.vaccine_immunity_duration = 15.  # in years
-        self.ltbi = False
-        self.tb_strain = None  # 'ds' or 'mdr'
-        self.active_tb = False
-        self.tb_organ = None
-        self.tb_detected = False
-        self.tb_treated = False
-        self.die_with_tb = False
-        self.contacts_while_tb = {'household': set([]), 'school': set([]), 'workplace': set([]), 'community': set([])}
 
         # individual group characteristics (school and work related)
         self.group_ids = []  # list of ids of the groups to which the individual is currently belonging
@@ -61,6 +66,65 @@ class Individual:
         self.programmed = {'death': None, 'leave_home': None, 'go_to_school': None, 'leave_school': None,
                            'leave_work': None}
 
+
+    # Methods related to moving properties to disease class
+    @property
+    def active_tb(self):
+        return self.disease.active_tb 
+
+    @active_tb.setter
+    def active_tb(self, value):
+        self.disease.active_tb = value
+
+    @property
+    def ltbi(self):
+        return self.disease.ltbi
+
+    @ltbi.setter
+    def ltbi(self, value):
+        self.disease.ltbi = value
+
+    @property
+    def tb_strain(self):
+        return self.disease.tb_strain
+    
+    @tb_strain.setter
+    def tb_strain(self, value):
+        self.disease.tb_strain = value
+
+    @property
+    def tb_organ(self):
+        return self.disease.organ
+
+    @tb_organ.setter
+    def tb_organ(self, value):
+        self.disease.organ = value
+
+    @property
+    def vaccinated(self):
+        return self.disease.vaccinated
+    
+    @vaccinated.setter
+    def vaccinated(self, value):
+        self.disease.vaccinated = value
+
+    @property
+    def tb_detected(self):
+        return self.disease.tb_detected
+
+    @tb_detected.setter
+    def tb_detected(self, value):
+        self.disease.tb_detected = value
+
+    @property
+    def tb_treated(self):
+        return self.disease.tb_treated
+
+    @tb_treated.setter
+    def tb_treated(self, value):
+        self.disease.tb_treated = value
+
+## Strictly Individual related methods ->
     def set_dOB(self, age, current_time, time_step=None):
         """
         Given a specific age (in years) at the time of initialisation, defines the date of birth of an individual.
@@ -114,288 +178,6 @@ class Individual:
     def get_age_in_years(self, time):
         return (time - self.dOB)/365.25
 
-    def get_relative_susceptibility(self, time, params):
-        """
-        Return the relative susceptibility to infection of the individual. This quantity depends on the following factors:
-         vaccination status, age ...
-        Returns the relative susceptibility. Baseline is for a non-vaccinated individual.
-        """
-        rr = 1.
-        if self.vaccinated:
-            age = self.get_age_in_years(time)
-            if age <= params['bcg_start_waning_year']:
-                efficacy = params['bcg_maximal_efficacy']
-            elif age <= params['bcg_end_waning_year']:
-                efficacy = params['bcg_maximal_efficacy'] - \
-                           (age - params['bcg_start_waning_year']) * \
-                                                            params['bcg_maximal_efficacy'] / \
-                                                            (params['bcg_end_waning_year'] - params['bcg_start_waning_year'])
-            else:
-                efficacy = 0.
-            rr *= 1. - efficacy
-
-        if self.ltbi:
-            rr *= params['latent_protection_multiplier']
-        return rr
-
-    def get_relative_infectiousness(self, params, time):
-        """
-            Return the relative infectiousness of the individual. This quantity depends on the following factors:
-            detection status, treatment status. Smear status
-            Returns the relative infectiousness. Baseline is for an undetected Smear-positive TB case.
-        """
-        if self.tb_organ == '_extrapulmonary':
-            return 0.
-
-        # age-specific profile for infectiousness
-        age = self.get_age_in_years(time)
-        if params['linear_scaleup_infectiousness']:
-            if age <= 10.:
-                rr = 0.
-            elif age >= 15:
-                rr = 1.
-            else:
-                rr = 0.2 * age - 2.
-        else:
-            # sigmoidal scale-up
-            rr = 1. / (1. + np.exp(-(age - params['infectiousness_switching_age'])))
-
-        # organ-manifestation
-        if self.tb_organ == '_smearneg':
-            rr *= params['rel_infectiousness_smearneg']
-
-        # detection status
-        if 'detection' in list(self.programmed.keys()) and time >= self.programmed['detection']:
-                rr *= params['rel_infectiousness_after_detect']
-
-        return rr
-
-    def infect_individual(self, time, params, strain):
-        """
-        The individual gets infected with LTBI at time "time".
-        """
-        self.ltbi = True
-        self.tb_strain = strain
-        self.determine_activation(time, params)
-
-    def determine_activation(self, time, params):
-        """
-        Determine whether and when the infected individual will activate TB.
-        """
-        time_to_activation = tb_activation.generate_an_activation_profile(self.get_age_in_years(time), params)
-
-        #  if time_to_activation is not None:
-        if np.rint(time + time_to_activation) < self.programmed['death']:
-            # the individual will activate TB
-            self.programmed['activation'] = int(np.rint(time + time_to_activation)[0])
-
-    def test_individual_for_ltbi(self, params):
-        """
-        Apply screening to an individual. This individual may or may not be infected.
-        return: a boolean variable indicating the result of the test (True for positif test)
-        """
-        if self.ltbi:  # infected individual.
-            test_result = bool(np.random.binomial(n=1, p=params['ltbi_test_sensitivity']))
-        else:  # not infected
-            if self.vaccinated:  # bcg affects specificity
-                test_result = bool(np.random.binomial(n=1, p=1. - params['ltbi_test_specificity_if_bcg']))
-            else:
-                test_result = bool(np.random.binomial(n=1, p=1. - params['ltbi_test_specificity_no_bcg']))
-        return test_result
-
-    def get_preventive_treatment(self, params, time=0, delayed=False):
-        """
-        The individual receives preventive treatment. If the individual is currently infected, infection vanishes with
-        probability pt_efficacy. The efficacy parameter represents a combined rate of adherence and treatment efficacy.
-        Return the date of prevented activation, which is the date of TB activation in the event that the individual was
-        meant to progress to active TB.
-        """
-        date_prevented_activation = None
-        if self.ltbi:
-            success = np.random.binomial(n=1, p=params['pt_efficacy'])
-            if success == 1:
-                self.ltbi = False
-                if 'activation' in list(self.programmed.keys()):
-                    if not delayed or (delayed and (time + params['pt_delay_due_to_tst']) <= self.programmed['activation']):
-                        date_prevented_activation = self.programmed['activation']
-                        del self.programmed['activation']
-
-        return date_prevented_activation
-
-    def activate_tb(self):
-        """
-        Make the individual activate TB
-        """
-        self.active_tb = True
-        self.ltbi = False  # convention
-
-    def define_tb_outcome(self, time, params, tx_success_prop):
-        """
-        This method determines the outcome of the individual's active TB episode, accounting for both natural history
-         and clinical management.
-        :return:
-        A dictionary containing the information to be recorded from the model perspective in case the programmed events
-        dictionary needs to be updated. The keys of the returned dictionary may be "death", "recovery" and/or "detection".
-        The values are the dates of the associated events.
-        """
-        # Smear-positive or Smear-negative
-        organ_probas = [params['perc_smearpos']/100.,  # smear_pos
-                        (100. - params['perc_smearpos'] - params['perc_extrapulmonary'])/100.,  # smear_neg
-                        params['perc_extrapulmonary']/100.]  # extrapulmonary
-
-        draw = np.random.multinomial(1, organ_probas)
-        index = int(np.nonzero(draw)[0])
-        self.tb_organ = ['_smearpos', '_smearneg', '_extrapulmonary'][index]
-
-        # Natural history of TB
-        if self.tb_organ == '_smearpos':
-            organ_for_natural_history = '_smearpos'
-        else:
-            organ_for_natural_history = '_closed_tb'
-
-        t_to_sp_cure = round(365.25 * np.random.exponential(scale=1. / params['rate_sp_cure' +
-                                                                           organ_for_natural_history]))
-        t_to_tb_death = round(365.25 * np.random.exponential(scale=1. / params['rate_tb_mortality' +
-                                                                            organ_for_natural_history]))
-        if t_to_sp_cure <= t_to_tb_death:
-            sp_cure = 1
-            t_s = t_to_sp_cure
-            t_m = float('inf')
-        else:
-            sp_cure = 0
-            t_s = float('inf')
-            t_m = t_to_tb_death
-
-        # np.random generation of programmatic durations
-        [t_d, t_t] = np.random.exponential(scale=[365.25/params['lambda_timeto_detection' + organ_for_natural_history],
-                                               params['time_to_treatment']])
-        t_d = round(t_d)
-        t_t = round(t_t)
-
-        # In case of spontaneous cure occurring before detection
-        if sp_cure == 1 and t_d >= t_s:
-            # In case spontaneous cure occurs before natural death
-            if time + t_s < self.programmed['death']:
-                self.programmed['recovery'] = time + t_s
-                return {'recovery': time + t_s, 'time_active': t_s}
-            else:  # natural death occurs before sp cure. Death will be registered as TB death
-                self.die_with_tb = True
-                return {'time_active': self.programmed['death'] - time}
-        # In case of tb death before detection
-        elif sp_cure == 0 and t_d >= t_m:
-            self.die_with_tb = True
-            if time + t_m < self.programmed['death']:
-                return {'death': time + t_m, 'time_active': t_m}
-            else:
-                return {'time_active': self.programmed['death'] - time}
-        # In case of detection effectively happening
-        elif time + t_d < self.programmed['death']:
-            self.programmed['detection'] = time + t_d
-            to_be_returned = {'detection': self.programmed['detection'],
-                              'time_active': self.programmed['death'] - time}
-            # In case of sp cure occurring after detection and before natural death
-            if sp_cure == 1 and time + t_s < self.programmed['death']:
-                self.programmed['recovery'] = time + t_s
-                to_be_returned['recovery'] = self.programmed['recovery']
-                to_be_returned['time_active'] = t_s
-            # In case of treatment effectively happening
-            if time + t_d + t_t < self.programmed['death']:
-                strain_multiplier = 1.
-                if self.tb_strain == 'mdr':
-                    strain_multiplier = params['perc_dst_coverage'] / 100.
-                    strain_multiplier *= params['relative_treatment_success_rate_mdr']
-                tx_cure = np.random.binomial(n=1, p=tx_success_prop * strain_multiplier)
-                if tx_cure == 1:
-                    if t_d + t_t < t_s: # will not overwrite the sp_cure date if it happens before treatment
-                        self.programmed['recovery'] = time + t_d + t_t
-                        to_be_returned['recovery'] = self.programmed['recovery']
-                        to_be_returned['time_active'] = t_d + t_t
-                elif tx_cure == 0 and self.tb_strain == 'ds':  # there is a risk of DR amplification
-                    ampli = np.random.binomial(n=1, p=params['perc_risk_amplification'] / 100.)
-                    if ampli == 1:
-                        self.tb_strain = 'mdr'  # may be improved in the future as the amplification should occur later
-                        to_be_returned['dr_amplification'] = time + t_d + t_t
-            return to_be_returned
-        # Otherwise, natural death occurs before detection
-        else:
-            return {'time_active': self.programmed['death'] - time}
-
-    def overwrite_tb_outcome_after_acf_detection(self, time, params, tx_success_prop):
-        self.detect_tb()
-        # work out treatment outcome
-        t_t = round(np.random.exponential(scale=params['time_to_treatment']))
-
-        self.programmed['detection'] = time
-        to_be_returned = {}  #'detection': self.programmed['detection']}
-        if time + t_t < self.programmed['death']:
-            strain_multiplier = 1.
-            if self.tb_strain == 'mdr':
-                strain_multiplier = params['perc_dst_coverage'] / 100.
-                strain_multiplier *= params['relative_treatment_success_rate_mdr']
-            tx_cure = np.random.binomial(n=1, p=tx_success_prop * strain_multiplier)
-            if tx_cure == 1:
-                if 'recovery' not in self.programmed.keys() or self.programmed['recovery'] > time + t_t:
-                    self.programmed['recovery'] = time + t_t
-                to_be_returned['recovery'] = self.programmed['recovery']
-            elif tx_cure == 0 and self.tb_strain == 'ds':  # there is a risk of DR amplification
-                ampli = np.random.binomial(n=1, p=params['perc_risk_amplification'] / 100.)
-                if ampli == 1:
-                    self.tb_strain = 'mdr'  # may be improved in the future as the amplification should occur later
-                    to_be_returned['dr_amplification'] = time + t_t
-        return to_be_returned
-
-    def detect_tb(self):
-        self.tb_detected = True
-
-    def recover(self):
-        """
-        Make the individual recover from TB
-        """
-        self.active_tb = False
-        self.ltbi = False
-        self.tb_strain = None
-        self.tb_organ = None
-        self.tb_detected = False
-        self.tb_treated = False
-        self.die_with_tb = False
-        self.contacts_while_tb = {'household': set([]), 'school': set([]), 'workplace': set([]), 'community': set([])}
-
-        if 'activation' in list(self.programmed.keys()):
-            del(self.programmed['activation'])
-        if 'recovery' in list(self.programmed.keys()):
-            del (self.programmed['recovery'])
-
-    def reset_params(self):
-        """
-        Reset most params to default values. The dOB and dOD are initialised in another process.
-        """
-        self.diabetes = False
-        self.hiv = False
-        self.ltbi = False
-        self.active_tb = False
-        self.vaccinated = False
-        self.group_ids = []
-
-        self.contacts_while_tb = {'household': set([]), 'school': ([]), 'workplace': ([]), 'community': ([])}
-
-        self.tb_organ = None
-
-        self.tb_detected = False
-        self.tb_treated = False
-        self.die_with_tb = False
-
-        self.is_ever_gonna_work = False
-
-        self.programmed = {}
-
-    def assign_vaccination_status(self, coverage):
-        """
-        When an individual is born, vaccination occurs with probability 'coverage'
-        """
-        vacc = np.random.binomial(1, coverage)
-        if vacc == 1:
-            self.vaccinated = True
-
     def is_in_subgroup(self, subgroup, time=None):
         """
         Binary test to inform whether the individual belongs to a specific subgroup.
@@ -421,6 +203,96 @@ class Individual:
 
         return test
 
+## Mixed or Disease related function ->
+
+    def get_relative_susceptibility(self, time, params):
+        """
+        Return the relative susceptibility to infection of the individual. This quantity depends on the following factors:
+         vaccination status, age ...
+        Returns the relative susceptibility. Baseline is for a non-vaccinated individual.
+        """
+        return self.disease.get_relative_susceptibility(self.get_age_in_years(time), params)
+
+    def get_relative_infectiousness(self, params, time):
+        """
+            Return the relative infectiousness of the individual. This quantity depends on the following factors:
+            detection status, treatment status. Smear status
+            Returns the relative infectiousness. Baseline is for an undetected Smear-positive TB case.
+        """
+        return self.disease.get_relative_infectiousness(params, time, self.get_age_in_years(time))
+
+    def infect_individual(self, time, params, strain):
+        """
+        The individual gets infected with LTBI at time "time".
+        """
+        return self.disease.infect_individual(time, params, strain, self.get_age_in_years(time), self.programmed['death'])
+
+    def determine_activation(self, time, params):
+        """
+        Determine whether and when the infected individual will activate TB.
+        """
+        time_to_activation = tb_activation.generate_an_activation_profile(self.get_age_in_years(time), params)
+
+        #  if time_to_activation is not None:
+        if np.rint(time + time_to_activation) < self.programmed['death']:
+            # the individual will activate TB
+            self.disease.programmed['activation'] = int(np.rint(time + time_to_activation)[0])
+
+    def test_individual_for_ltbi(self, params):
+        """
+        Apply screening to an individual. This individual may or may not be infected.
+        return: a boolean variable indicating the result of the test (True for positif test)
+        """
+        return self.disease.test_individual_for_latent_infection(params)
+
+    def get_preventive_treatment(self, params, time=0, delayed=False):
+        """
+        The individual receives preventive treatment. If the individual is currently infected, infection vanishes with
+        probability pt_efficacy. The efficacy parameter represents a combined rate of adherence and treatment efficacy.
+        Return the date of prevented activation, which is the date of TB activation in the event that the individual was
+        meant to progress to active TB.
+        """
+        return self.disease.get_preventive_treatment(params, time, delayed)
+        
+
+    def activate_tb(self):
+        """
+        Make the individual activate TB
+        """
+        self.disease.activate_tb()
+
+    def define_tb_outcome(self, time, params, tx_success_prop):
+        """
+        This method determines the outcome of the individual's active TB episode, accounting for both natural history
+         and clinical management.
+        :return:
+        A dictionary containing the information to be recorded from the model perspective in case the programmed events
+        dictionary needs to be updated. The keys of the returned dictionary may be "death", "recovery" and/or "detection".
+        The values are the dates of the associated events.
+        """
+        return self.disease.define_tb_outcome(time, params, tx_success_prop, self.programmed['death'])
+
+    def overwrite_tb_outcome_after_acf_detection(self, time, params, tx_success_prop):
+        self.disease.overwrite_tb_outcome_after_acf_detection(time, params, tx_success_prop, self.programmed['death'])
+
+    def detect_tb(self):
+        self.disease.detect_tb()
+
+    def recover(self):
+        """
+        Make the individual recover from TB
+        """
+        # Reset contacts
+        self.contacts_while_tb = {'household': set([]), 'school': set([]), 'workplace': set([]), 'community': set([])}
+        self.disease.recover()
+
+    def assign_vaccination_status(self, coverage):
+        """
+        When an individual is born, vaccination occurs with probability 'coverage'
+        """
+        vacc = np.random.binomial(1, coverage)
+        if vacc == 1:
+            self.vaccinated = True
 
 if __name__ == '__main__':
     ages = []

@@ -6,7 +6,7 @@
 .vscode/*
 
 calibrated_models/*
-outputs/
+outputs/*
 *.pyc
 *.bak
 ~$*.xlsx
