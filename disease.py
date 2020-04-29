@@ -58,6 +58,7 @@ class Disease:
 
         if self.ltbi:
             rr *= params['latent_protection_multiplier']
+        #assert 0 <= rr <= 1
         return rr
     
     def get_relative_infectiousness(self, params, time, age):

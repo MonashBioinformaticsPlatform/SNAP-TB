@@ -94,11 +94,11 @@ class Individual:
 
     @property
     def tb_organ(self):
-        return self.disease.organ
+        return self.disease.tb_organ
 
     @tb_organ.setter
     def tb_organ(self, value):
-        self.disease.organ = value
+        self.disease.tb_organ = value
 
     @property
     def vaccinated(self):

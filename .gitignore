@@ -5,8 +5,8 @@
 .idea/*
 .vscode/*
 
-calibrated_models/*
-outputs/*
+# calibrated_models/*
+outputs/**/*png
 *.pyc
 *.bak
 ~$*.xlsx
