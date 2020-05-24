@@ -61,3 +61,17 @@ Run the model
             - `test.py`
     - Would be useful if it was eventually changed use all either standard Random or Numpy's random.
 
+## Producing a Disease model class
+
+### How SNAP-TB thinks about diseases
+
+SNAP-TB has two parts, an ABM which is disease agnostic which has individuals, and a model, which acts on individuals. In order to impose a disease, we give each Individual a disease object (of class Disease) which carries all the methods and properties of the specific disease we're simulating.
+
+- Each disease is its own class 
+    - TB is one such disease
+    - Each disease model class requires the following functions:
+        - `move_forward()`
+        - `make_individual_die()`
+        - `update_programmed_events()`
+        - `store_variables()`
+    - `move_forward()` is used to call and insert a function that runs TB related cleanup 

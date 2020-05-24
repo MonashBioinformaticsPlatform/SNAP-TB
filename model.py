@@ -601,7 +601,9 @@ class Model:
                 new_file_path = os.path.join(dir_path, 'complete_seed' + str(self.i_seed) + '_' + self.scenario + '_run' + str(self.i_run) + '.txt')
                 os.rename(file_path, new_file_path)
 
-    def move_forward(self):
+    # @disease related - knows it may need a disease_func to run. Defaults to 
+    #running a lambda that passes
+    def move_forward(self, disease_func=lambda *args: None):
         if self.params['run_universal_methods']:
             self.run_universal_methods()  # what needs to be done for every single individual at every step
         self.store_variables()
@@ -650,52 +652,16 @@ class Model:
             if self.time > (float(self.last_year_completed + 1) * 365.25):  # one year has been completed
                 self.run_yearly_methods()
 
-            # TB below
-            if self.time >= self.params['duration_burning_demo'] * 365.25:
-                # turn transmission on if requested
-                self.transmission = self.params['transmission']
-                if not self.tb_has_started: # TB is starting right now then
-                    if self.params['init_n_tb_cases'] > 0 or self.params['init_ltbi_prev'] > 0:
-                        if not self.initialised and self.params['duration_burning_tb'] == 0:
-                            pass
-                        else:
-                            self.set_initial_tb_states()
-                            self.set_initial_infection_states()
-                            self.tb_has_started = True
-
-            if self.tb_has_started:
-                if self.time >= (self.params['duration_burning_demo'] + self.params['duration_burning_tb'] + self.params['intervention_start_delay'] ) * 365.25:
-                    self.apply_interventions()
-
-                self.trigger_programmed_activations()
-                if self.transmission:
-                    self.spread_infections()
-                self.trigger_programmed_detections()
-                self.trigger_programmed_recoveries()
-                self.trigger_programmed_tb_deaths()
-
-            if self.time > (float(self.last_year_completed + 1) * 365.25):  # one year has been completed
-                self.last_year_completed += 1
-                # major simulation stop?
-                file_path = os.path.join('outputs', self.params['project_name'], 'keep_running.txt')
-                if not os.path.exists(file_path):
-                    exit('Process exit from model.py: "keep_running" file was deleted')
-                if self.params['print_time']:
-                    print(self.scenario + ' run ' + str(self.i_run) + ': year ' + str(self.last_year_completed) + \
-                          ' (' + str(int(self.get_current_date())) + ') completed. Absolute tb_prevalence: ' + \
-                          str(int(self.tb_prevalence)) + ' (' + \
-                          str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)')
-                    if os.name != 'nt':  # 'nt' for windows system
-                        self.write_status_file()
-
-            # demo only again
-            self.trigger_programmed_deaths()
-
-            if not self.fertility_replacement:
-                self.trigger_births()
-
-            self.update_want_to_move_list()
-            self.trigger_individuals_move_home()
+        #Disease related code goes here ----
+        #It needs to be run before reporting for this step
+        disease_func()
+        
+        # demo only again
+        self.trigger_programmed_deaths()
+        if not self.fertility_replacement:
+            self.trigger_births()
+        self.update_want_to_move_list()
+        self.trigger_individuals_move_home()
         # self.check_workplace_ages() # debugging
         # self.check_school_ages() # debugging
 
@@ -723,7 +689,7 @@ class Model:
         return stop
 
     def check_individuals(self):
-        pass
+        raise NotImplementedError
 
     def run_universal_methods(self):
         """
@@ -775,40 +741,6 @@ class Model:
         if 'birth_rate' in self.params['timeseries_to_record']:
             self.timeseries_log['birth_rate'].append(
                 365.25 * 1000. * self.birth_numbers / (self.population * self.params['time_step']))
-
-        # LTBI prevalence
-        if 'ltbi_prevalence' in self.params['timeseries_to_record']:
-            self.timeseries_log['ltbi_prevalence'].append(100.*self.ltbi_prevalence/self.population)
-
-        # TB incidence
-        if 'tb_incidence' in self.params['timeseries_to_record']:
-            self.timeseries_log['tb_incidence'].append(
-                365.25 * 1.e5 * self.tb_incidence / (self.population * self.params['time_step']))
-
-        # TB prevalence
-        if 'tb_prevalence' in self.params['timeseries_to_record']:
-            self.timeseries_log['tb_prevalence'].append(1.e5*self.tb_prevalence/self.population)
-
-        if 'tb_prevalence_ds' in self.params['timeseries_to_record']:
-            self.timeseries_log['tb_prevalence_ds'].append(1.e5 * self.tb_prevalence_ds / self.population)
-
-        if 'tb_prevalence_mdr' in self.params['timeseries_to_record']:
-            self.timeseries_log['tb_prevalence_mdr'].append(1.e5 * self.tb_prevalence_mdr / self.population)
-
-        if 'prop_mdr_prevalence' in self.params['timeseries_to_record']:
-            prop_mdr = 0. if self.tb_prevalence == 0. else self.tb_prevalence_mdr / self.tb_prevalence
-            self.timeseries_log['prop_mdr_prevalence'].append(prop_mdr)
-
-        # TB deaths
-        if 'tb_deaths' in self.params['timeseries_to_record']:
-            self.timeseries_log['tb_deaths'].append(
-                365.25 * 1.e5 * self.tb_deaths / (self.population * self.params['time_step']))
-
-        # preventive treatments provided
-        if 'n_pt_provided' in self.params['timeseries_to_record']:
-            self.timeseries_log['n_pt_provided'].append(self.n_pt_provided)
-        if 'n_useful_pt_provided' in self.params['timeseries_to_record']:
-            self.timeseries_log['n_useful_pt_provided'].append(self.n_useful_pt_provided)
 
         if self.params['run_universal_methods']:
             # mean age
@@ -1064,47 +996,280 @@ class Model:
         self.individuals[ind_id].group_ids = [gr_id for gr_id in self.individuals[ind_id].group_ids if gr_id != group_id]
         self.groups[group_id] = [ids for ids in self.groups[group_id] if ids != ind_id]
 
-    def trigger_programmed_activations(self):
+    def trigger_programmed_deaths(self):
         """
-        The individuals listed in the programmed_events['activation'] dictionary for the times elapsed since the last iteration time
-        have to activate TB.
+        The individuals listed in the programmed_deaths dictionary for the times elapsed since the last iteration time
+        have to die.
         """
-        for activation_time in [d for d in list(self.programmed_events['activation'].keys()) if d <= self.time]:
-            for ind_id in self.programmed_events['activation'][activation_time]:
-                self.make_individual_activate_tb(ind_id)
-            del self.programmed_events['activation'][activation_time]
+        for death_time in [d for d in list(self.programmed_events['death'].keys()) if d <= self.time]:
+            for ind_id in self.programmed_events['death'][death_time]:
+                self.make_individual_die(ind_id)
+            del self.programmed_events['death'][death_time]
 
-    def make_individual_activate_tb(self, ind_id, init=False):
+    def clean_programmed_dictionaries(self, ind_id):
         """
-        Triggers activation in the individual ind_id by changing the relevant attribute and updating the "active_cases"
-        dictionary.
+        Individual ind_id is about to die. We need to clean up a few dicitonaries.
         """
-        if self.individuals[ind_id].ltbi:  # may be ltbi-neg if pt has been used with delay or if initialisation of TB states.
-            self.ltbi_prevalence -= 1
-        self.active_cases.append(ind_id)
-        self.individuals[ind_id].activate_tb()
-        self.tb_prevalence += 1
-        if self.individuals[ind_id].tb_strain == 'ds':
-            self.tb_prevalence_ds += 1
+
+        keys_to_loop = self.programmed_events.keys()
+        for key in keys_to_loop:
+            if key in self.individuals[ind_id].programmed.keys():
+                if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
+                    self.programmed_events[key][self.individuals[ind_id].programmed[key]] = \
+                        [ids for ids in self.programmed_events[key][self.individuals[ind_id].programmed[key]]
+                         if ids != ind_id]
+
+        if ind_id in self.individuals_want_to_move.keys():
+            del(self.individuals_want_to_move[ind_id])
+
+    def remove_from_groups(self, ind_id):
+        for group_id in self.individuals[ind_id].group_ids:
+            self.groups[group_id] = [ind for ind in self.groups[group_id] if ind != ind_id]
+
+    def trigger_births(self):
+        if self.constant_birth_rate:
+            average_nb_births_per_step = self.params['birth_rate']*self.population*self.params['time_step'] / (365.25 * 1000.)
+        else:  # age-pyramid driven
+            time_to_pyramid = self.age_pyramid_date - self.time
+            time_to_pyramid = abs(time_to_pyramid)   # not too clean but needed when one step goes over age_pyramid_date
+            average_nb_births_per_step = self.birth_numbers_function(time_to_pyramid)
+
+        nb_births = np.random.poisson(average_nb_births_per_step)
+        for _ in repeat(None, nb_births):  # supposed to be faster than a classic for loop
+            self.make_individual_bear()
+
+    def make_individual_bear(self, ind_id=None):
+        self.population += 1
+        self.birth_numbers += 1
+        hh_id = self.pick_eligible_household_for_birth()
+        self.add_new_individual_in_hh(h_id=hh_id, age=0., ind_id=ind_id)
+        if hh_id in self.empty_households:
+            self.empty_households = [h for h in self.empty_households if h != hh_id]
+
+        if hh_id in list(self.eligible_hh_for_birth.keys()):
+            del self.eligible_hh_for_birth[hh_id]
+
+    def update_programmed_events(self, event_dict, ind_id=None):
+        """
+        update the programmed events dictionary.
+        :param event_dict keys are the type of event ("death",...) and the values are the dates of the events
+        """
+        if 'death' in list(event_dict.keys()):
+            self.program_tb_death(ind_id, event_dict['death'])
+
+    def generate_checkpoint_outputs(self):
+        """
+        Perform some measures that have to be done at checkpoint times only
+        """
+        # Age distribution
+        if self.stopped_simulation:   # we don't want to store ages for individuals when model has stopped running.
+            self.checkpoint_outcomes['ages'][self.time] = []
         else:
-            self.tb_prevalence_mdr += 1
+            self.checkpoint_outcomes['ages'][self.time] = [
+                individual.get_age_in_years(self.time) for
+                individual in list(self.individuals.values())]
 
-        self.tb_incidence += 1
+        # Household size distribition
+        self.checkpoint_outcomes['household_sizes'][self.time] = [h.size for h in list(self.households.values())]
 
-        tb_outcome = self.individuals[ind_id].define_tb_outcome(time=self.time, params=self.params,
-                                                                tx_success_prop=self.scale_up_functions_current_time['treatment_success_prop'])
-        if 'time_active' in list(tb_outcome.keys()):
-            self.time_active['total_n_cases'] += 1
-            self.time_active['total_time_active'] += tb_outcome['time_active']
+        # School and worplace sizes
+        for group_type in ['school', 'workplace']:
+            self.checkpoint_outcomes[group_type + '_sizes'][self.time] = [len(group) for group_id, group in
+                                                                          self.groups.items() if
+                                                                          self.group_types[group_id] == group_type]
 
-        if 'dr_amplification' in list(tb_outcome.keys()):
-            self.tb_prevalence_ds -= 1  # should be improved in the future as dr_amplification should occur later at treatment
-            self.tb_prevalence_mdr += 1
+    def get_ages_by_household(self):
+        """
+        Not used at the moment
+        """
+        ages_by_household = []
 
-        self.update_programmed_events(tb_outcome, ind_id)
+        for i, hh in self.households.items():
+            ages_by_household.append([])
+            for ind_id in hh.individual_ids:
+                ages_by_household[i].append(round(self.individuals[ind_id].get_age_in_years(self.time)))
+        return ages_by_household
 
-        if self.params['plot_all_tb_ages'] and not init:
-            self.all_tb_ages.append(self.individuals[ind_id].get_age_in_years(self.time))
+    def average_timeseries(self):
+        """
+        Apply a moving average smoothing to the timeseries that are listed in self.timeseries_to_average
+        """
+        n_steps = int(round(self.moving_average_width / self.params['time_step']))
+        if n_steps > 0:
+            for series_name in list(self.timeseries_log.keys()):
+                if series_name in self.timeseries_to_average:
+                    y = copy.copy(self.timeseries_log[series_name])
+                    for i, time in enumerate(self.timeseries_log['times']):
+                        ind_min = max(0, i - n_steps)
+                        ind_max = i  # min(len(y)-1, i + n_steps)
+                        self.timeseries_log[series_name][i] = np.mean(y[ind_min:ind_max+1])
+
+    def clean_timeseries(self):
+        """
+        Clean some time-series such as incidence that has a peak at the very first time-step.
+        """
+        if 'tb_incidence' in list(self.timeseries_log.keys()):
+            self.timeseries_log['tb_incidence'][0] = 0.
+
+    def turn_model_into_dict(self):
+        m_dict = {}
+        attributes_to_store = ['timeseries_log', 'params', 'checkpoint_outcomes', 'i_seed', 'scenario', 'i_run',
+                               'contact_matrices', 'all_tb_ages', 'ltbi_age_stats', 'n_contacts', 'tb_prevalence_by_age',
+                               'stopped_simulation']
+        for attr in attributes_to_store:
+            m_dict[attr] = getattr(self, attr)
+        return m_dict
+
+    def write_status_file(self):
+        # create the main directory using the name entered through the console
+        time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+        str_to_write = "Year " + str(self.last_year_completed) + ' (' + str(int(self.get_current_date())) +\
+                       ") completed at time: " + time +\
+                       " Nb of TB cases: " + str(int(self.tb_prevalence)) + ' (' + \
+                          str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)'
+        base_path = os.path.join('outputs')
+        dir_path = os.path.join(base_path, self.params['project_name'])
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        file_path = os.path.join(dir_path, 'progress_seed' + str(self.i_seed) + '_' + self.scenario + '_run' + str(self.i_run) + '.txt')
+
+        # Implement manual interruption of the program. If status file is deleted, running is stopped.
+        if not os.path.exists(file_path) and self.status_file_created:
+            self.stop_running_model()
+
+        file = open(file_path, 'a+')
+        file.write(str_to_write + "\n")
+        file.close()
+        self.status_file_created = True
+
+    def check_workplace_ages(self):
+        """
+        For debugging only. Check that all individuals in workplaces are "adult"
+        """
+        print(self.time)
+        for w in self.groups_by_type['workplaces']:
+            for ind_id in self.groups[w]:
+                print("________")
+                print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
+
+    def check_school_ages(self):
+        """
+        For debugging only. Check that all individuals in schools are aged between 5 and 18
+        """
+        print(self.time)
+        for w in self.groups_by_type['schools']:
+            for ind_id in self.groups[w]:
+                if self.individuals[ind_id].get_age_in_years(self.time)<5 or self.individuals[ind_id].get_age_in_years(self.time)>18:
+                    print("////////////////////")
+                    print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
+
+    def check_calibration_targets(self):
+        current_date = self.get_current_date()
+        for y in list(self.remaining_calibration_targets.keys()):
+            if y <= current_date:
+                for target in self.remaining_calibration_targets[y]:
+                    if not self.is_target_verified(target):
+                        self.stop_running_model()
+                del self.remaining_calibration_targets[y]
+
+    def make_individual_die(self, ind_id):
+        """
+        Reset the individual characteristics and generate a new dOD. This simulates the death of
+        individual ind_id and generates a newborn in the same household. The newborn individual keeps
+        the same ind_id
+        """
+        #Individual might die from age before TB - need way to clear that.
+        # @Reverted function that requires sorted list
+
+        del self.dates_of_birth[ind_id]
+        self.clean_programmed_dictionaries(ind_id)
+        self.remove_from_groups(ind_id)
+
+        age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time), 'prem')
+
+        # @Reverted function that requires sorted list
+        if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
+            age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
+
+        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
+        #    This removes the first matching id, and passes if it doesn't exist
+        try:
+            self.ind_by_agegroup[age_cat].remove(ind_id)
+        except ValueError:
+            pass
+
+        previous_hh_id = self.individuals[ind_id].household_id
+        self.households[previous_hh_id].size -= 1
+
+        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
+        if self.households[previous_hh_id].individual_ids is not None:
+            try:
+                self.households[previous_hh_id].individual_ids.remove(ind_id)
+            except ValueError:
+                pass
+            self.population -= 1
+
+        # The previous household may become empty and eligible for a new couple to move in
+        if self.households[previous_hh_id].size == 0:
+            if previous_hh_id in list(self.eligible_hh_for_birth.keys()):
+                self.households[previous_hh_id].repopulate_date = -1.e8 # This probably needs to be explained?
+                del(self.eligible_hh_for_birth[previous_hh_id])
+            self.empty_households.append(previous_hh_id)
+        del self.individuals[ind_id]
+
+        if self.fertility_replacement:
+            self.make_individual_bear()
+
+    def store_calibrated_model(self):
+        """
+        If the calibration conditions are verified, the fully run model is stored
+        :return:
+        """
+        print("!!!!!!!!!  We have a calibrated model !!!!!!!!!")
+        print("Saving model run...")
+        dir_path = os.path.join('calibrated_models')
+        # dir_path = os.path.join(base_path, self.params['project_name'], self.scenario)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        second_dir_path = os.path.join(dir_path, self.params['project_name'])
+        if not os.path.exists(second_dir_path):
+            os.makedirs(second_dir_path)
+        file_name_base = "pickled_calibrated_model_" + self.scenario + "_run" + str(self.i_run) + ".pickle"
+        file_name = os.path.join(second_dir_path, file_name_base)
+        if os.path.isfile(file_name):
+            file_name_base = str(np.random.randint(1, 100)) + "_pickled_calibrated_model_" + self.scenario + "_run" + str(self.i_run) + ".pickle"
+            file_name = os.path.join(second_dir_path, file_name_base)
+        file_stream = open(file_name, "wb")
+
+        del self.scale_up_functions
+        del self.birth_numbers_function
+        dill.dump(self, file_stream)
+        file_stream.close()
+        print("Calibrated model successfully saved for scenario: " + self.scenario)
+        self.has_been_stored = True
+        if self.params['stop_running_after_calibration'] and self.params['running_mode'] != 'run_ks_based_calibration':
+            print("Simulation will now be stopped as a calibrated model has been found.")
+            file_name = os.path.join('outputs', self.params['project_name'], 'keep_running.txt')
+            os.remove(file_name)
+            exit()
+
+    def get_current_date(self):
+        remaining_year = (self.age_pyramid_date - self.time)/365.25
+        time_in_years = self.params['current_year'] - remaining_year
+        return time_in_years
+    
+    #Common disease methods
+    def spread_infections(self):
+        """
+        Rules the whole transmission process.
+        """
+        for ind_id in self.active_cases:
+            relative_infectiousness = self.individuals[ind_id].get_relative_infectiousness(self.params, self.time)
+            if relative_infectiousness > 0.:  # the index case is infectious
+                contact_dict = self.get_contacts_during_last_step(ind_id)  # returns a dictionary keyed with contact ids, valued with nb of contacts
+                self.apply_transmission(contact_dict, relative_infectiousness, index_id=ind_id)
+
 
     def record_all_contacts(self):
         if self.stopped_simulation:
@@ -1264,7 +1429,8 @@ class Model:
         adjusted_contact_rate = raw_contact_rate - float(hh_size - 1)
         return max(0., adjusted_contact_rate)
 
-    def apply_transmission(self, contact_dict, relative_infectiousness, index_id):
+    # Should just have a generic transmission - Could consider constant transmission rate
+    def apply_transmission(self, contact_dict, relative_infectiousness, index_id, disease_method):
         """
         At this stage, contacts of ind_id have been defined (information contained in contact_dict) but we still don't
         know whether they are associated with transmission. This method will trigger possible transmission events.
@@ -1283,25 +1449,7 @@ class Model:
                 transmission = np.random.binomial(1, success_proba)
 
                 if transmission == 1:  # transmission does occur
-                    contact_age = floor(self.individuals[contacted_id].get_age_in_years(self.time))
-                    self.n_contacts['transmission'][location] += 1
-                    if index_age <= 100. and contact_age <= 100.:
-                        self.contact_matrices['transmission'][location][int(index_age), int(contact_age)] += 1
-                    # diseased (or future diseased) individuals are not affected with reinfection
-                    # if cotacted individual NOT have active TB && NOT programmed for actiavtion
-                    if not self.individuals[contacted_id].active_tb and not self.individuals[contacted_id].disease.programmed['activation'] > -1:
-                        if not self.individuals[contacted_id].ltbi:  # This is a newly infected individual
-                            self.ltbi_prevalence += 1
-                        self.infect_an_individual(contacted_id, strain=self.individuals[index_id].tb_strain)
-                        # if 'activation' in list(self.individuals[contacted_id].programmed.keys()):  # responsible for a new TB case
-                        if self.individuals[contacted_id].disease.programmed['activation'] > -1:
-                            self.n_contacts['transmission_end_tb'][location] += 1
-                            if index_age <= 100. and contact_age <= 100.:
-                                self.contact_matrices['transmission_end_tb'][location][int(index_age), int(contact_age)] += 1
-                        if self.params['ideal_pt_program'] and self.time >= \
-                                        365.25*(self.params['duration_burning_demo'] +
-                                                    self.params['duration_burning_tb'] + self.params['intervention_start_delay']):  # PT is provided to all infectees, as soon as they get infected
-                            self.provide_preventive_treatment(contacted_id, delayed=False)
+                    disease_method(index_id, location, index_age, contacted_id, nb_contacts)
 
     def update_contact_matrices(self, ind_id, contact_dict):
         """
@@ -1316,15 +1464,161 @@ class Model:
                     if age_contacted <= 100.:
                         self.contact_matrices['contact'][location][int(age_ind_id), int(age_contacted)] += nb_contacts
 
-    def trigger_programmed_deaths(self):
+class TbModel(Model):
+    """
+        This class serves to inherits all an ABM's methods and add disease functionality
+        The idea is that any disease could be slotted in if it is crafted similarly
+    """
+    def __init__(self, data, i_seed, scenario, i_run, initialised=True):
+
+        Model.__init__(self, data, i_seed, scenario, i_run, initialised)
+
+        self.active_cases = []
+        self.all_tb_ages = []
+        self.tb_prevalence_by_age = []
+        self.transmission = False  # will become the same as the inputed parameter when demographic burning is done
+        self.tb_has_started = False
+
+        self.ltbi_prevalence = 0.
+        self.tb_prevalence = 0.
+        self.tb_prevalence_ds = 0.
+        self.tb_prevalence_mdr = 0.
+        self.tb_incidence = 0.  # Absolute number of new cases for current time-step. Reset at each new time-step.
+        self.tb_deaths = 0.  # Absolute number of tb-deaths for current time-step. Reset at each new time-step.
+        self.time_active = {'total_n_cases': 0, 'total_time_active': 0}
+
+        self.n_pt_provided = 0  # absolute number of prev treatments provided during the current time-step
+        self.n_useful_pt_provided = 0  # absolute number of prev treatments leading to infection cure
+
+        self.programmed_events.update({'activation': {}, 'detection': {}, 'recovery': {}, 'tb_death': {}})
+
+        # attributes pertaining to the series that need smoothing by moving average
+        self.timeseries_to_average = ['tb_incidence', 'tb_deaths', 'n_pt_provided', 'n_useful_pt_provided']
+        self.moving_average_width = 365.  # number of days considered before each time for averaging timeseries / hard-coded
+
+        self.initialised = initialised
+        if not initialised:
+            self.initialise_model(data)    
+
+    def process_cdr(self):
         """
-        The individuals listed in the programmed_deaths dictionary for the times elapsed since the last iteration time
-        have to die.
+        The case detection rate (cdr) is provided as an input parameter. We need to calculate the rate of the exponential
+        distribution associated with the time to detection which would yield the specified cdr.
         """
-        for death_time in [d for d in list(self.programmed_events['death'].keys()) if d <= self.time]:
-            for ind_id in self.programmed_events['death'][death_time]:
-                self.make_individual_die(ind_id)
-            del self.programmed_events['death'][death_time]
+        for organ in ['_smearpos', '_closed_tb']:
+            cdr = self.scale_up_functions_current_time['cdr_prop']
+            if cdr > 0.95:
+                print("WARNING: a CDR too close to 100% will lead to no contact identified as detection occurs very quickly")
+            assert cdr <= 1., "Case detection must be <= 1"
+            if cdr == 1.:
+                self.params['lambda_timeto_detection' + organ] = 1.e9  # some big value
+            elif cdr == 0.:
+                self.params['lambda_timeto_detection' + organ] = 1. / 1.e9 # some tiny value
+            else:
+                mu = 1. / 70.
+                self.params['lambda_timeto_detection' + organ] = \
+                    (cdr / (1. - cdr)) * (self.params['rate_sp_cure' + organ] + self.params['rate_tb_mortality' + organ] + mu)
+
+    def process_organ_proportions(self):
+        self.params['perc_smearpos'] = 100. * self.scale_up_functions_current_time['sp_prop']
+        self.params['perc_extrapulmonary'] = 0.5 * (100. - self.params['perc_smearpos'])
+
+    def adjust_attributes_after_calibration(self):
+        """
+        We need to reset some attributes to get the model ready for the recording / analysis phase
+        """
+        self.params['plot_contact_heatmap'] = True
+        self.params['plot_all_tb_ages'] = True
+        self.reset_recording_attributes()
+
+    def reset_recording_attributes(self):
+        self.all_tb_ages = []
+        self.n_pt_provided = 0  # absolute number of prev treatments provided during the current time-step
+        self.n_useful_pt_provided = 0  # absolute number of prev treatments leading to infection cure
+        self.initialise_contact_matrices()
+        self.ltbi_age_stats = {'ltbi_ages': [], 'ending_tb_ages': []}
+        self.ltbi_age_stats_have_been_recorded = False
+
+    def record_ltbi_ages(self):
+        for individual in list(self.individuals.values()):
+            if individual.ltbi:
+                age = individual.get_age_in_years(self.time)
+                self.ltbi_age_stats['ltbi_ages'].append(age)
+                # if 'activation' in list(individual.programmed.keys()):
+                if individual.disease.programmed['activation'] > -1:
+                    self.ltbi_age_stats['ending_tb_ages'].append(age)
+
+    def record_tb_prevalence_by_age(self):
+        self.tb_prevalence_by_age = []
+        age_breaks = [0., 5., 10., 15., 25., 35., 45., 55., 65.]
+        age_cats = [['X_1'], ['X_2'], ['X_3'], ['X_4', 'X_5'], ['X_6', 'X_7'],  ['X_8', 'X_9'],  ['X_10', 'X_11'],
+                    ['X_12', 'X_13'], ['X_14', 'X_15', 'X_16']]
+        nb_cases = [0. for _ in range(len(age_breaks))]
+        agegroup_size = []
+
+        for i in range(len(age_breaks)):
+            pop_size = 0.
+            for age_cat in age_cats[i]:
+                pop_size += len(self.ind_by_agegroup[age_cat])
+            agegroup_size.append(pop_size)
+
+        # calculate the absolute prevalence by age
+        for tb_case_id in self.active_cases:
+            tb_age = self.individuals[tb_case_id].get_age_in_years(self.time)
+            if tb_age >= 65.:
+                age_cat_index = 8
+            else:
+                age_cat_index = next(x[0] for x in enumerate(age_breaks) if tb_age <= x[1]) - 1
+            nb_cases[age_cat_index] += 1.
+
+        # make the prevalence as relative to age-group pop sizes
+        for i in range(len(nb_cases)):
+            if agegroup_size[i] > 0:
+                self.tb_prevalence_by_age.append( 1.e5 * nb_cases[i]/agegroup_size[i])  # now /100,000
+            else:
+                self.tb_prevalence_by_age.append(0.)
+
+    def trigger_programmed_activations(self):
+        """
+        The individuals listed in the programmed_events['activation'] dictionary for the times elapsed since the last iteration time
+        have to activate TB.
+        """
+        for activation_time in [d for d in list(self.programmed_events['activation'].keys()) if d <= self.time]:
+            for ind_id in self.programmed_events['activation'][activation_time]:
+                self.make_individual_activate_tb(ind_id)
+            del self.programmed_events['activation'][activation_time]
+
+    def make_individual_activate_tb(self, ind_id, init=False):
+        """
+        Triggers activation in the individual ind_id by changing the relevant attribute and updating the "active_cases"
+        dictionary.
+        """
+        if self.individuals[ind_id].ltbi:  # may be ltbi-neg if pt has been used with delay or if initialisation of TB states.
+            self.ltbi_prevalence -= 1
+        self.active_cases.append(ind_id)
+        self.individuals[ind_id].activate_tb()
+        self.tb_prevalence += 1
+        if self.individuals[ind_id].tb_strain == 'ds':
+            self.tb_prevalence_ds += 1
+        else:
+            self.tb_prevalence_mdr += 1
+
+        self.tb_incidence += 1
+
+        tb_outcome = self.individuals[ind_id].define_tb_outcome(time=self.time, params=self.params,
+                                                                tx_success_prop=self.scale_up_functions_current_time['treatment_success_prop'])
+        if 'time_active' in list(tb_outcome.keys()):
+            self.time_active['total_n_cases'] += 1
+            self.time_active['total_time_active'] += tb_outcome['time_active']
+
+        if 'dr_amplification' in list(tb_outcome.keys()):
+            self.tb_prevalence_ds -= 1  # should be improved in the future as dr_amplification should occur later at treatment
+            self.tb_prevalence_mdr += 1
+
+        self.update_programmed_events(tb_outcome, ind_id)
+
+        if self.params['plot_all_tb_ages'] and not init:
+            self.all_tb_ages.append(self.individuals[ind_id].get_age_in_years(self.time))
 
     def trigger_programmed_tb_deaths(self):
         """
@@ -1335,139 +1629,25 @@ class Model:
             for ind_id in self.programmed_events['tb_death'][death_time]:
                 self.make_individual_die(ind_id)
             del self.programmed_events['tb_death'][death_time]
-    
-    def make_individual_die(self, ind_id):
-        """
-        Reset the individual characteristics and generate a new dOD. This simulates the death of
-        individual ind_id and generates a newborn in the same household. The newborn individual keeps
-        the same ind_id
-        """
-        # @Reverted function that requires sorted list
 
+    def make_individual_die(self, ind_id):
+        #TB
         if self.individuals[ind_id].active_tb:
             self.tb_prevalence -= 1
             if self.individuals[ind_id].tb_strain == 'ds':
                 self.tb_prevalence_ds -= 1
             else:
                 self.tb_prevalence_mdr -= 1
-            self.active_cases = [ind for ind in self.active_cases if ind != ind_id]
+            # self.active_cases = [ind for ind in self.active_cases if ind != ind_id]
             self.tb_deaths += 1
-
+        #TB
         if self.individuals[ind_id].ltbi:
             self.ltbi_prevalence -= 1
-
-        del self.dates_of_birth[ind_id]
-        self.clean_programmed_dictionaries(ind_id)
-        self.remove_from_groups(ind_id)
-
-        age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time), 'prem')
-        
-        # @Reverted function that requires sorted list
-        if ind_id not in self.ind_by_agegroup[age_cat]: # the individual was still recorded in the previous age_category
-            age_cat = get_agecategory(self.individuals[ind_id].get_age_in_years(self.time - 365.25), 'prem')
-        
-        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
-        #    This removes the element, and passes if it doesn't exist
-        try:
-            self.ind_by_agegroup[age_cat].remove(ind_id)
-        except ValueError:
-            pass
-
-        previous_hh_id = self.individuals[ind_id].household_id
-        self.households[previous_hh_id].size -= 1
-
-        # @Optimisation - can be replaced with a list comprehension if this is too unsafe
-        if self.households[previous_hh_id].individual_ids is not None:
-            try:
-                self.households[previous_hh_id].individual_ids.remove(ind_id)
-            except ValueError:
-                pass
-            self.population -= 1
-
-        # The previous household may become empty and eligible for a new couple to move in
-        if self.households[previous_hh_id].size == 0:
-            if previous_hh_id in list(self.eligible_hh_for_birth.keys()):
-                self.households[previous_hh_id].repopulate_date = -1.e8
-                del(self.eligible_hh_for_birth[previous_hh_id])
-            self.empty_households.append(previous_hh_id)
-
-        del self.individuals[ind_id]
-
-        if self.fertility_replacement:
-            self.make_individual_bear()
-
-    def clean_programmed_dictionaries(self, ind_id):
-        """
-        Individual ind_id is about to die. We need to clean up a few dicitonaries.
-        """
-
-        keys_to_loop = self.programmed_events.keys()
-        for key in keys_to_loop:
-            if key in self.individuals[ind_id].programmed.keys():
-                if self.individuals[ind_id].programmed[key] in self.programmed_events[key].keys():
-                    self.programmed_events[key][self.individuals[ind_id].programmed[key]] = \
-                        [ids for ids in self.programmed_events[key][self.individuals[ind_id].programmed[key]]
-                         if ids != ind_id]
-
-        if ind_id in self.individuals_want_to_move.keys():
-            del(self.individuals_want_to_move[ind_id])
-
-    def remove_from_groups(self, ind_id):
-        for group_id in self.individuals[ind_id].group_ids:
-            self.groups[group_id] = [ind for ind in self.groups[group_id] if ind != ind_id]
-
-    def trigger_births(self):
-
-        if self.constant_birth_rate:
-            average_nb_births_per_step = self.params['birth_rate']*self.population*self.params['time_step'] / (365.25 * 1000.)
-        else:  # age-pyramid driven
-            time_to_pyramid = self.age_pyramid_date - self.time
-            time_to_pyramid = abs(time_to_pyramid)   # not too clean but needed when one step goes over age_pyramid_date
-            average_nb_births_per_step = self.birth_numbers_function(time_to_pyramid)
-
-        nb_births = np.random.poisson(average_nb_births_per_step)
-        for _ in repeat(None, nb_births):  # supposed to be faster than a classic for loop
-            self.make_individual_bear()
-
-    def make_individual_bear(self, ind_id=None):
-        self.population += 1
-        self.birth_numbers += 1
-        hh_id = self.pick_eligible_household_for_birth()
-        self.add_new_individual_in_hh(h_id=hh_id, age=0., ind_id=ind_id)
-        if hh_id in self.empty_households:
-            self.empty_households = [h for h in self.empty_households if h != hh_id]
-
-        if hh_id in list(self.eligible_hh_for_birth.keys()):
-            del self.eligible_hh_for_birth[hh_id]
-
-    def update_programmed_events(self, event_dict, ind_id=None):
-        """
-        update the programmed events dictionary.
-        :param event_dict keys are the type of event ("death",...) and the values are the dates of the events
-        """
-        if 'death' in list(event_dict.keys()):
-            self.program_tb_death(ind_id, event_dict['death'])
-        if 'recovery' in list(event_dict.keys()):
-            self.add_recovery_to_programmed_recoveries(ind_id, event_dict['recovery'])
-        if 'detection' in list(event_dict.keys()):
-            self.add_detection_to_programmed_detections(ind_id, event_dict['detection'])
-
-    def add_detection_to_programmed_detections(self, ind_id, detection_date):
-        if detection_date in list(self.programmed_events['detection'].keys()):
-            self.programmed_events['detection'][detection_date].append(ind_id)
-        else:
-            self.programmed_events['detection'][detection_date] = [ind_id]
-
-    def trigger_programmed_detections(self):
-        """
-        The individuals listed in the programmed_recoveries dictionary for the times elapsed since the last iteration time
-        have to recover from TB.
-        """
-        for detection_time in [d for d in list(self.programmed_events['detection'].keys()) if d <= self.time]:
-            for ind_id in self.programmed_events['detection'][detection_time]:
-                self.detect_individual(ind_id)
-                self.trigger_hh_based_acf(ind_id)
-            del self.programmed_events['detection'][detection_time]
+        #if agent is ill (if self.individuals[ind_id].active_tb or self.individuals[ind_id].ltbi)
+        #self.individuals[ind_id]
+        #This means that the model still needs to know about active cases
+        self.active_cases = [ind for ind in self.active_cases if ind != ind_id] 
+        super().make_individual_die(ind_id)
 
     def detect_individual(self, ind_id):
         self.individuals[ind_id].detect_tb()
@@ -1561,6 +1741,131 @@ class Model:
             else:  # provide pt without testing
                 self.provide_preventive_treatment(contact_id, delayed=False)
 
+    def provide_preventive_treatment(self, ind_id, delayed=False):
+        """
+        Provide preventive treatment to the individual ind_id.
+        In case of effective treatment in an individual who was meant to progress to active tb, the programmed date of
+        activation of the individual has to be removed from the programmed_events dictionary.
+        """
+        self.n_pt_provided += 1.
+        pre_ltbi = copy.copy(self.individuals[ind_id].ltbi)
+        date_prevented_activation = self.individuals[ind_id].disease.get_preventive_treatment(self.params, time=self.time, delayed=delayed)
+        if date_prevented_activation is not None:  # The treatment is successful and useful
+            self.programmed_events['activation'][date_prevented_activation] = [ids for ids in \
+                                                                                self.programmed_events['activation'][
+                                                                                    date_prevented_activation]
+                                                                                                if ids != ind_id]
+            self.n_useful_pt_provided += 1.
+        if pre_ltbi and not self.individuals[ind_id].ltbi:
+            self.ltbi_prevalence -= 1
+
+    def is_target_verified(self, target):
+        pass_test = False
+        print("Check target for year " + str(target['year']))
+        if 'category' in list(target.keys()):
+            if target['indicator'] == 'tb_prevalence':
+                abs_prev = 0
+                for ind_id in self.active_cases:
+                    if '_smearpos' in target['category'] and self.individuals[ind_id].tb_organ != '_smearpos':
+                        continue
+                    if '_pulmonary' in target['category'] and self.individuals[ind_id].tb_organ == '_extrapulmonary':
+                        continue
+                    if 'more_than_15' in target['category'] and self.individuals[ind_id].get_age_in_years(self.time) < 15.:
+                        continue
+                    abs_prev += 1
+                nb_kids = 0
+                for age_cat in ['X_1', 'X_2', 'X_3']: #Still needs to know about 
+                    nb_kids += len(self.ind_by_agegroup[age_cat])
+                deno = self.population - nb_kids
+                model_measure = abs_prev * 1.e5 / deno
+                print(model_measure)
+        else:
+            model_measure = self.timeseries_log[target['indicator']][-1]
+        if target['min_accepted_value'] <= model_measure <= target['max_accepted_value']:
+            pass_test = True
+            print("Target checked")
+        else:
+            print("Model estimate for " + target['indicator'] + " in " + str(target['year']) + " must be in (" +\
+                  str(target['min_accepted_value']) + "-" + str(target['max_accepted_value']) + "). Value: " +\
+                  str(model_measure))
+        return pass_test
+
+    def tb_methods(self):
+            if self.time >= self.params['duration_burning_demo'] * 365.25:
+                # turn transmission on if requested
+                self.transmission = self.params['transmission']
+                if not self.tb_has_started: # TB is starting right now then
+                    if self.params['init_n_tb_cases'] > 0 or self.params['init_ltbi_prev'] > 0:
+                        if not self.initialised and self.params['duration_burning_tb'] == 0:
+                            pass
+                        else:
+                            self.set_initial_tb_states()
+                            self.set_initial_infection_states()
+                            self.tb_has_started = True
+
+            if self.tb_has_started:
+                if self.time >= (self.params['duration_burning_demo'] + self.params['duration_burning_tb'] + self.params['intervention_start_delay'] ) * 365.25:
+                    self.apply_interventions()
+
+                self.trigger_programmed_activations()
+                if self.transmission:
+                    self.spread_infections()
+                self.trigger_programmed_detections()
+                self.trigger_programmed_recoveries()
+                self.trigger_programmed_tb_deaths()
+            
+            #move_forward's reporting to console
+            if self.time > (float(self.last_year_completed + 1) * 365.25):  # one year has been completed
+                self.last_year_completed += 1
+                # major simulation stop?
+                file_path = os.path.join('outputs', self.params['project_name'], 'keep_running.txt')
+                if not os.path.exists(file_path):
+                    exit('Process exit from model.py: "keep_running" file was deleted')
+                if self.params['print_time']:
+                    print(self.scenario + ' run ' + str(self.i_run) + ': year ' + str(self.last_year_completed) + \
+                            ' (' + str(int(self.get_current_date())) + ') completed. Absolute tb_prevalence: ' + \
+                            str(int(self.tb_prevalence)) + ' (' + \
+                            str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)')
+                    if os.name != 'nt':  # 'nt' for windows system
+                        self.write_status_file()
+
+    """
+    It seems that the way we want to run the disease upkeep during move forward
+    is to do them in the middle of the non-disease model. What we do is overrride
+    and pass in self.tb_methods to be run. Placeholder is an empty lambda function
+    """
+    def move_forward(self):
+        super().move_forward(disease_func=self.tb_methods)
+
+    def update_programmed_events(self, event_dict, ind_id=None):
+        """
+        update the programmed events dictionary.
+        :param event_dict keys are the type of event ("death",...) and the values are the dates of the events
+        """
+        super().update_programmed_events(event_dict, ind_id)
+
+        if 'recovery' in list(event_dict.keys()):
+            self.add_recovery_to_programmed_recoveries(ind_id, event_dict['recovery'])
+        if 'detection' in list(event_dict.keys()):
+            self.add_detection_to_programmed_detections(ind_id, event_dict['detection'])
+    
+    def add_detection_to_programmed_detections(self, ind_id, detection_date):
+        if detection_date in list(self.programmed_events['detection'].keys()):
+            self.programmed_events['detection'][detection_date].append(ind_id)
+        else:
+            self.programmed_events['detection'][detection_date] = [ind_id]
+
+    def trigger_programmed_detections(self):
+        """
+        The individuals listed in the programmeda_recoveries dictionary for the times elapsed since the last iteration time
+        have to recover from TB.
+        """
+        for detection_time in [d for d in list(self.programmed_events['detection'].keys()) if d <= self.time]:
+            for ind_id in self.programmed_events['detection'][detection_time]:
+                self.detect_individual(ind_id)
+                self.trigger_hh_based_acf(ind_id)
+            del self.programmed_events['detection'][detection_time]
+
     def add_recovery_to_programmed_recoveries(self, ind_id, recovery_date):
         if recovery_date in list(self.programmed_events['recovery'].keys()):
             self.programmed_events['recovery'][recovery_date].append(ind_id)
@@ -1621,326 +1926,68 @@ class Model:
         else:
             self.programmed_events['activation'][self.individuals[ind_id].disease.programmed['activation']] = [ind_id]
 
-    def provide_preventive_treatment(self, ind_id, delayed=False):
+    def store_variables(self):
         """
-        Provide preventive treatment to the individual ind_id.
-        In case of effective treatment in an individual who was meant to progress to active tb, the programmed date of
-        activation of the individual has to be removed from the programmed_events dictionary.
+        Populate dictionaries that store the model outputs
         """
-        self.n_pt_provided += 1.
-        pre_ltbi = copy.copy(self.individuals[ind_id].ltbi)
-        date_prevented_activation = self.individuals[ind_id].disease.get_preventive_treatment(self.params, time=self.time, delayed=delayed)
-        if date_prevented_activation is not None:  # The treatment is successful and useful
-            self.programmed_events['activation'][date_prevented_activation] = [ids for ids in \
-                                                                                self.programmed_events['activation'][
-                                                                                    date_prevented_activation]
-                                                                                                  if ids != ind_id]
-            self.n_useful_pt_provided += 1.
-        if pre_ltbi and not self.individuals[ind_id].ltbi:
-            self.ltbi_prevalence -= 1
 
-    def generate_checkpoint_outputs(self):
-        """
-        Perform some measures that have to be done at checkpoint times only
-        """
-        # Age distribution
-        if self.stopped_simulation:   # we don't want to store ages for individuals when model has stopped running.
-            self.checkpoint_outcomes['ages'][self.time] = []
-        else:
-            self.checkpoint_outcomes['ages'][self.time] = [
-                individual.get_age_in_years(self.time) for
-                individual in list(self.individuals.values())]
+        # LTBI prevalence
+        if 'ltbi_prevalence' in self.params['timeseries_to_record']:
+            self.timeseries_log['ltbi_prevalence'].append(100.*self.ltbi_prevalence/self.population)
 
-        # Household size distribition
-        self.checkpoint_outcomes['household_sizes'][self.time] = [h.size for h in list(self.households.values())]
+        # TB incidence
+        if 'tb_incidence' in self.params['timeseries_to_record']:
+            self.timeseries_log['tb_incidence'].append(
+                365.25 * 1.e5 * self.tb_incidence / (self.population * self.params['time_step']))
 
-        # School and worplace sizes
-        for group_type in ['school', 'workplace']:
-            self.checkpoint_outcomes[group_type + '_sizes'][self.time] = [len(group) for group_id, group in
-                                                                          self.groups.items() if
-                                                                          self.group_types[group_id] == group_type]
+        # TB prevalence
+        if 'tb_prevalence' in self.params['timeseries_to_record']:
+            self.timeseries_log['tb_prevalence'].append(1.e5*self.tb_prevalence/self.population)
 
-    def get_ages_by_household(self):
-        """
-        Not used at the moment
-        """
-        ages_by_household = []
+        if 'tb_prevalence_ds' in self.params['timeseries_to_record']:
+            self.timeseries_log['tb_prevalence_ds'].append(1.e5 * self.tb_prevalence_ds / self.population)
 
-        for i, hh in self.households.items():
-            ages_by_household.append([])
-            for ind_id in hh.individual_ids:
-                ages_by_household[i].append(round(self.individuals[ind_id].get_age_in_years(self.time)))
-        return ages_by_household
+        if 'tb_prevalence_mdr' in self.params['timeseries_to_record']:
+            self.timeseries_log['tb_prevalence_mdr'].append(1.e5 * self.tb_prevalence_mdr / self.population)
 
-    def average_timeseries(self):
-        """
-        Apply a moving average smoothing to the timeseries that are listed in self.timeseries_to_average
-        """
-        n_steps = int(round(self.moving_average_width / self.params['time_step']))
-        if n_steps > 0:
-            for series_name in list(self.timeseries_log.keys()):
-                if series_name in self.timeseries_to_average:
-                    y = copy.copy(self.timeseries_log[series_name])
-                    for i, time in enumerate(self.timeseries_log['times']):
-                        ind_min = max(0, i - n_steps)
-                        ind_max = i  # min(len(y)-1, i + n_steps)
-                        self.timeseries_log[series_name][i] = np.mean(y[ind_min:ind_max+1])
+        if 'prop_mdr_prevalence' in self.params['timeseries_to_record']:
+            prop_mdr = 0. if self.tb_prevalence == 0. else self.tb_prevalence_mdr / self.tb_prevalence
+            self.timeseries_log['prop_mdr_prevalen=ce'].append(prop_mdr)
 
-    def clean_timeseries(self):
-        """
-        Clean some time-series such as incidence that has a peak at the very first time-step.
-        """
-        if 'tb_incidence' in list(self.timeseries_log.keys()):
-            self.timeseries_log['tb_incidence'][0] = 0.
+        # TB deaths
+        if 'tb_deaths' in self.params['timeseries_to_record']:
+            self.timeseries_log['tb_deaths'].append(
+                365.25 * 1.e5 * self.tb_deaths / (self.population * self.params['time_step']))
 
-    def turn_model_into_dict(self):
-        m_dict = {}
-        attributes_to_store = ['timeseries_log', 'params', 'checkpoint_outcomes', 'i_seed', 'scenario', 'i_run',
-                               'contact_matrices', 'all_tb_ages', 'ltbi_age_stats', 'n_contacts', 'tb_prevalence_by_age',
-                               'stopped_simulation']
-        for attr in attributes_to_store:
-            m_dict[attr] = getattr(self, attr)
-        return m_dict
+        # preventive treatments provided
+        if 'n_pt_provided' in self.params['timeseries_to_record']:
+            self.timeseries_log['n_pt_provided'].append(self.n_pt_provided)
+        if 'n_useful_pt_provided' in self.params['timeseries_to_record']:
+            self.timeseries_log['n_useful_pt_provided'].append(self.n_useful_pt_provided)
 
-    def write_status_file(self):
-        # create the main directory using the name entered through the console
-        time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
-        str_to_write = "Year " + str(self.last_year_completed) + ' (' + str(int(self.get_current_date())) +\
-                       ") completed at time: " + time +\
-                       " Nb of TB cases: " + str(int(self.tb_prevalence)) + ' (' + \
-                          str(int(round(1.e5 * self.tb_prevalence / self.population))) + ' /100k)'
-        base_path = os.path.join('outputs')
-        dir_path = os.path.join(base_path, self.params['project_name'])
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        file_path = os.path.join(dir_path, 'progress_seed' + str(self.i_seed) + '_' + self.scenario + '_run' + str(self.i_run) + '.txt')
+        super().store_variables()
+        # Model's store_variables() checkpoint at the end, therefore we call it last
 
-        # Implement manual interruption of the program. If status file is deleted, running is stopped.
-        if not os.path.exists(file_path) and self.status_file_created:
-            self.stop_running_model()
+    def transmission_methods(self, index_id, location, index_age, contacted_id, nb_contacts):
+        contact_age = floor(self.individuals[contacted_id].get_age_in_years(self.time))
+        self.n_contacts['transmission'][location] += 1
+        if index_age <= 100. and contact_age <= 100.:
+            self.contact_matrices['transmission'][location][int(index_age), int(contact_age)] += 1
+        # diseased (or future diseased) individuals are not affected with reinfection
+        # if cotacted individual NOT have active TB && NOT programmed for actiavtion
+        if not self.individuals[contacted_id].active_tb and not self.individuals[contacted_id].disease.programmed['activation'] > -1:
+            if not self.individuals[contacted_id].ltbi:  # This is a newly infected individual
+                self.ltbi_prevalence += 1
+            self.infect_an_individual(contacted_id, strain=self.individuals[index_id].tb_strain)
+            # if 'activation' in list(self.individuals[contacted_id].programmed.keys()):  # responsible for a new TB case
+            if self.individuals[contacted_id].disease.programmed['activation'] > -1:
+                self.n_contacts['transmission_end_tb'][location] += 1
+                if index_age <= 100. and contact_age <= 100.:
+                    self.contact_matrices['transmission_end_tb'][location][int(index_age), int(contact_age)] += 1
+            if self.params['ideal_pt_program'] and self.time >= \
+                            365.25*(self.params['duration_burning_demo'] +
+                                        self.params['duration_burning_tb'] + self.params['intervention_start_delay']):  # PT is provided to all infectees, as soon as they get infected
+                self.provide_preventive_treatment(contacted_id, delayed=False)
 
-        file = open(file_path, 'a+')
-        file.write(str_to_write + "\n")
-        file.close()
-        self.status_file_created = True
-
-    def check_workplace_ages(self):
-        """
-        For debugging only. Check that all individuals in workplaces are "adult"
-        """
-        print(self.time)
-        for w in self.groups_by_type['workplaces']:
-            for ind_id in self.groups[w]:
-                print("________")
-                print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
-
-    def check_school_ages(self):
-        """
-        For debugging only. Check that all individuals in schools are aged between 5 and 18
-        """
-        print(self.time)
-        for w in self.groups_by_type['schools']:
-            for ind_id in self.groups[w]:
-                if self.individuals[ind_id].get_age_in_years(self.time)<5 or self.individuals[ind_id].get_age_in_years(self.time)>18:
-                    print("////////////////////")
-                    print(str(ind_id) + ": " + str(self.individuals[ind_id].get_age_in_years(self.time)))
-
-    def check_calibration_targets(self):
-        current_date = self.get_current_date()
-        for y in list(self.remaining_calibration_targets.keys()):
-            if y <= current_date:
-                for target in self.remaining_calibration_targets[y]:
-                    if not self.is_target_verified(target):
-                        self.stop_running_model()
-                del self.remaining_calibration_targets[y]
-
-    def is_target_verified(self, target):
-        pass_test = False
-        print("Check target for year " + str(target['year']))
-        if 'category' in list(target.keys()):
-            if target['indicator'] == 'tb_prevalence':
-                abs_prev = 0
-                for ind_id in self.active_cases:
-                    if '_smearpos' in target['category'] and self.individuals[ind_id].tb_organ != '_smearpos':
-                        continue
-                    if '_pulmonary' in target['category'] and self.individuals[ind_id].tb_organ == '_extrapulmonary':
-                        continue
-                    if 'more_than_15' in target['category'] and self.individuals[ind_id].get_age_in_years(self.time) < 15.:
-                        continue
-                    abs_prev += 1
-                nb_kids = 0
-                for age_cat in ['X_1', 'X_2', 'X_3']:
-                    nb_kids += len(self.ind_by_agegroup[age_cat])
-                deno = self.population - nb_kids
-                model_measure = abs_prev * 1.e5 / deno
-                print(model_measure)
-        else:
-            model_measure = self.timeseries_log[target['indicator']][-1]
-        if target['min_accepted_value'] <= model_measure <= target['max_accepted_value']:
-            pass_test = True
-            print("Target checked")
-        else:
-            print("Model estimate for " + target['indicator'] + " in " + str(target['year']) + " must be in (" +\
-                  str(target['min_accepted_value']) + "-" + str(target['max_accepted_value']) + "). Value: " +\
-                  str(model_measure))
-        return pass_test
-
-    def store_calibrated_model(self):
-        """
-        If the calibration conditions are verified, the fully run model is stored
-        :return:
-        """
-        print("!!!!!!!!!  We have a calibrated model !!!!!!!!!")
-        print("Saving model run...")
-        dir_path = os.path.join('calibrated_models')
-        # dir_path = os.path.join(base_path, self.params['project_name'], self.scenario)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-
-        second_dir_path = os.path.join(dir_path, self.params['project_name'])
-        if not os.path.exists(second_dir_path):
-            os.makedirs(second_dir_path)
-        file_name_base = "pickled_calibrated_model_" + self.scenario + "_run" + str(self.i_run) + ".pickle"
-        file_name = os.path.join(second_dir_path, file_name_base)
-        if os.path.isfile(file_name):
-            file_name_base = str(np.random.randint(1, 100)) + "_pickled_calibrated_model_" + self.scenario + "_run" + str(self.i_run) + ".pickle"
-            file_name = os.path.join(second_dir_path, file_name_base)
-        file_stream = open(file_name, "wb")
-
-        del self.scale_up_functions
-        del self.birth_numbers_function
-        dill.dump(self, file_stream)
-        file_stream.close()
-        print("Calibrated model successfully saved for scenario: " + self.scenario)
-        self.has_been_stored = True
-        if self.params['stop_running_after_calibration'] and self.params['running_mode'] != 'run_ks_based_calibration':
-            print("Simulation will now be stopped as a calibrated model has been found.")
-            file_name = os.path.join('outputs', self.params['project_name'], 'keep_running.txt')
-            os.remove(file_name)
-            exit()
-
-    def get_current_date(self):
-        remaining_year = (self.age_pyramid_date - self.time)/365.25
-        time_in_years = self.params['current_year'] - remaining_year
-        return time_in_years
-
-
-class TbModel(Model):
-    def __init__(self, data, i_seed, scenario, i_run, initialised=True):
-
-        Model.__init__(self, data, i_seed, scenario, i_run, initialised)
-
-        self.active_cases = []
-        self.all_tb_ages = []
-        self.tb_prevalence_by_age = []
-        self.transmission = False  # will become the same as the inputed parameter when demographic burning is done
-        self.tb_has_started = False
-
-        self.ltbi_prevalence = 0.
-        self.tb_prevalence = 0.
-        self.tb_prevalence_ds = 0.
-        self.tb_prevalence_mdr = 0.
-        self.tb_incidence = 0.  # Absolute number of new cases for current time-step. Reset at each new time-step.
-        self.tb_deaths = 0.  # Absolute number of tb-deaths for current time-step. Reset at each new time-step.
-        self.time_active = {'total_n_cases': 0, 'total_time_active': 0}
-
-        self.n_pt_provided = 0  # absolute number of prev treatments provided during the current time-step
-        self.n_useful_pt_provided = 0  # absolute number of prev treatments leading to infection cure
-
-        self.programmed_events.update({'activation': {}, 'detection': {}, 'recovery': {}, 'tb_death': {}})
-
-        # attributes pertaining to the series that need smoothing by moving average
-        self.timeseries_to_average = ['tb_incidence', 'tb_deaths', 'n_pt_provided', 'n_useful_pt_provided']
-        self.moving_average_width = 365.  # number of days considered before each time for averaging timeseries / hard-coded
-
-        self.initialised = initialised
-        if not initialised:
-            self.initialise_model(data)
-
-    def spread_infections(self):
-        """
-        Rules the whole transmission process.
-        """
-        for ind_id in self.active_cases:
-            relative_infectiousness = self.individuals[ind_id].get_relative_infectiousness(self.params, self.time)
-            if relative_infectiousness > 0.:  # the index case is infectious
-                contact_dict = self.get_contacts_during_last_step(ind_id)  # returns a dictionary keyed with contact ids, valued with nb of contacts
-                self.apply_transmission(contact_dict, relative_infectiousness, index_id=ind_id)
-
-    def process_cdr(self):
-        """
-        The case detection rate (cdr) is provided as an input parameter. We need to calculate the rate of the exponential
-        distribution associated with the time to detection which would yield the specified cdr.
-        """
-        for organ in ['_smearpos', '_closed_tb']:
-            cdr = self.scale_up_functions_current_time['cdr_prop']
-            if cdr > 0.95:
-                print("WARNING: a CDR too close to 100% will lead to no contact identified as detection occurs very quickly")
-            assert cdr <= 1., "Case detection must be <= 1"
-            if cdr == 1.:
-                self.params['lambda_timeto_detection' + organ] = 1.e9  # some big value
-            elif cdr == 0.:
-                self.params['lambda_timeto_detection' + organ] = 1. / 1.e9 # some tiny value
-            else:
-                mu = 1. / 70.
-                self.params['lambda_timeto_detection' + organ] = \
-                    (cdr / (1. - cdr)) * (self.params['rate_sp_cure' + organ] + self.params['rate_tb_mortality' + organ] + mu)
-
-    def process_organ_proportions(self):
-        self.params['perc_smearpos'] = 100. * self.scale_up_functions_current_time['sp_prop']
-        self.params['perc_extrapulmonary'] = 0.5 * (100. - self.params['perc_smearpos'])
-
-    def adjust_attributes_after_calibration(self):
-        """
-        We need to reset some attributes to get the model ready for the recording / analysis phase
-        """
-        self.params['plot_contact_heatmap'] = True
-        self.params['plot_all_tb_ages'] = True
-        self.reset_recording_attributes()
-
-    def reset_recording_attributes(self):
-        self.all_tb_ages = []
-        self.n_pt_provided = 0  # absolute number of prev treatments provided during the current time-step
-        self.n_useful_pt_provided = 0  # absolute number of prev treatments leading to infection cure
-        self.initialise_contact_matrices()
-        self.ltbi_age_stats = {'ltbi_ages': [], 'ending_tb_ages': []}
-        self.ltbi_age_stats_have_been_recorded = False
-
-    def record_ltbi_ages(self):
-        for individual in list(self.individuals.values()):
-            if individual.ltbi:
-                age = individual.get_age_in_years(self.time)
-                self.ltbi_age_stats['ltbi_ages'].append(age)
-                # if 'activation' in list(individual.programmed.keys()):
-                if individual.disease.programmed['activation'] > -1:
-                    self.ltbi_age_stats['ending_tb_ages'].append(age)
-
-    def record_tb_prevalence_by_age(self):
-        self.tb_prevalence_by_age = []
-        age_breaks = [0., 5., 10., 15., 25., 35., 45., 55., 65.]
-        age_cats = [['X_1'], ['X_2'], ['X_3'], ['X_4', 'X_5'], ['X_6', 'X_7'],  ['X_8', 'X_9'],  ['X_10', 'X_11'],
-                    ['X_12', 'X_13'], ['X_14', 'X_15', 'X_16']]
-        nb_cases = [0. for _ in range(len(age_breaks))]
-        agegroup_size = []
-
-        for i in range(len(age_breaks)):
-            pop_size = 0.
-            for age_cat in age_cats[i]:
-                pop_size += len(self.ind_by_agegroup[age_cat])
-            agegroup_size.append(pop_size)
-
-        # calculate the absolute prevalence by age
-        for tb_case_id in self.active_cases:
-            tb_age = self.individuals[tb_case_id].get_age_in_years(self.time)
-            if tb_age >= 65.:
-                age_cat_index = 8
-            else:
-                age_cat_index = next(x[0] for x in enumerate(age_breaks) if tb_age <= x[1]) - 1
-            nb_cases[age_cat_index] += 1.
-
-        # make the prevalence as relative to age-group pop sizes
-        for i in range(len(nb_cases)):
-            if agegroup_size[i] > 0:
-                self.tb_prevalence_by_age.append( 1.e5 * nb_cases[i]/agegroup_size[i])  # now /100,000
-            else:
-                self.tb_prevalence_by_age.append(0.)
+    def apply_transmission(self, contact_dict, relative_infectiousness, index_id):
+        super().apply_transmission(contact_dict, relative_infectiousness, index_id, self.transmission_methods)

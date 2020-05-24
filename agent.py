@@ -47,7 +47,7 @@ class Individual:
         self.hiv = False    # boolean
 
         # Create disease object from disease class.
-        self.disease = disease.Disease("TB", {})
+        self.disease = disease.TbDisease("TB", {})
         # is_infected                       T/F
         # is_latent                         T/F - T is latent, F is active. Some diseases may never beome latent
         # infected_organs                   string array, None

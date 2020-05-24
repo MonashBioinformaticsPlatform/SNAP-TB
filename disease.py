@@ -1,7 +1,7 @@
 import numpy as np
 import tb_activation
 
-class Disease:
+class TbDisease:
     """Defines what will be a generic disease
     
     For now it is very TB specific.
@@ -10,9 +10,21 @@ class Disease:
     the agent as well as functions for permuting those. Due to the structure of 
     the model it is accessed via property decorated functions in the Individual.
 
-    This class takes a variable number of keyword arguments, it requires a 
-    minimum of:
+    This class requires a minimum of:
+    Properties:
+    name
+    params - disease 
 
+    Functions:
+    get_relative_susceptibility
+    get_relative_infectiousness
+    infect_individual
+    determine_activation
+    test_individual_for_latent_infection
+    get_preventive_treatment
+    define_disease_outcome
+    recover
+    assign_vaccination_status
     """
     def __init__(self, disease_params, name=""):
         self.name = name # Name of the disease params
