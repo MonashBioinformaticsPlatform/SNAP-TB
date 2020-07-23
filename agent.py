@@ -47,7 +47,9 @@ class Individual:
         self.hiv = False    # boolean
 
         # Create disease object from disease class.
-        self.disease = disease.TbDisease("TB", {})
+        # self.disease = disease.TbDisease("TB", {}) #Use this if we want to use the original TbDisease
+        self.disease = disease.TestDisease("disease", {}) #This means we use the TestDisease
+
         # is_infected                       T/F
         # is_latent                         T/F - T is latent, F is active. Some diseases may never beome latent
         # infected_organs                   string array, None
@@ -65,64 +67,6 @@ class Individual:
         # programmed events
         self.programmed = {'death': None, 'leave_home': None, 'go_to_school': None, 'leave_school': None,
                            'leave_work': None}
-
-
-    # Methods related to moving properties to disease class
-    @property
-    def active_tb(self):
-        return self.disease.active_tb 
-
-    @active_tb.setter
-    def active_tb(self, value):
-        self.disease.active_tb = value
-
-    @property
-    def ltbi(self):
-        return self.disease.ltbi
-
-    @ltbi.setter
-    def ltbi(self, value):
-        self.disease.ltbi = value
-
-    @property
-    def tb_strain(self):
-        return self.disease.tb_strain
-    
-    @tb_strain.setter
-    def tb_strain(self, value):
-        self.disease.tb_strain = value
-
-    @property
-    def tb_organ(self):
-        return self.disease.tb_organ
-
-    @tb_organ.setter
-    def tb_organ(self, value):
-        self.disease.tb_organ = value
-
-    @property
-    def vaccinated(self):
-        return self.disease.vaccinated
-    
-    @vaccinated.setter
-    def vaccinated(self, value):
-        self.disease.vaccinated = value
-
-    @property
-    def tb_detected(self):
-        return self.disease.tb_detected
-
-    @tb_detected.setter
-    def tb_detected(self, value):
-        self.disease.tb_detected = value
-
-    @property
-    def tb_treated(self):
-        return self.disease.tb_treated
-
-    @tb_treated.setter
-    def tb_treated(self, value):
-        self.disease.tb_treated = value
 
 ## Strictly Individual related methods ->
     def set_dOB(self, age, current_time, time_step=None):
@@ -205,7 +149,7 @@ class Individual:
 
 ## Mixed or Disease related function ->
 
-    def get_relative_susceptibility(self, time, params):
+    def get_relative_susceptibility(self, params, time):
         """
         Return the relative susceptibility to infection of the individual. This quantity depends on the following factors:
          vaccination status, age ...
@@ -261,7 +205,7 @@ class Individual:
         """
         self.disease.activate_tb()
 
-    def define_tb_outcome(self, time, params, tx_success_prop):
+    def define_disease_outcome(self, time, params, tx_success_prop):
         """
         This method determines the outcome of the individual's active TB episode, accounting for both natural history
          and clinical management.
@@ -270,10 +214,10 @@ class Individual:
         dictionary needs to be updated. The keys of the returned dictionary may be "death", "recovery" and/or "detection".
         The values are the dates of the associated events.
         """
-        return self.disease.define_tb_outcome(time, params, tx_success_prop, self.programmed['death'])
+        return self.disease.define_disease_outcome(time, params, tx_success_prop, self.programmed['death'])
 
-    def overwrite_tb_outcome_after_acf_detection(self, time, params, tx_success_prop):
-        self.disease.overwrite_tb_outcome_after_acf_detection(time, params, tx_success_prop, self.programmed['death'])
+    def overwrite_disease_outcome_after_acf_detection(self, time, params, tx_success_prop):
+        self.disease.overwrite_disease_outcome_after_acf_detection(time, params, tx_success_prop, self.programmed['death'])
 
     def detect_tb(self):
         self.disease.detect_tb()

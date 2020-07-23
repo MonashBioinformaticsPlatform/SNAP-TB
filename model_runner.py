@@ -121,7 +121,6 @@ class ModelRunner:
             string += scenario + " "
         string += "will be run from " + str(self.nb_seeds) + " seeds, " + str(self.data.console['n_runs']) + \
                   " times each for " + str(self.data.console['n_years']) + " years."
-        print(string)
 
         self.initialise_storage()  # initialise diagnostics storage
 
@@ -292,4 +291,3 @@ if __name__ == "__main__":
     loaded_model = dill.load(file_stream)
 
     loaded_model.params['g_child']
-    print("s")
