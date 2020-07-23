@@ -6,6 +6,8 @@ import tb_activation
 
 class TestDiseaseMethods(unittest.TestCase):
     def setUp(self):
+        np.random.seed(1580943402)
+        # random.seed(1580943402)
         #Create disease mockup
         self.mock_disease = disease.Disease("TB", {})
 
@@ -39,27 +41,21 @@ class TestDiseaseMethods(unittest.TestCase):
         #Before waning start
         self.mock_disease.vaccinated = True
         self.mock_disease.ltbi = False
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 0.5)
         #After waning start, before waning end
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 0.7)
         #After waning end
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 1)
 
         #NOT vaccinated && IS ltbi
         #Before waning start
         self.mock_disease.vaccinated = False
         self.mock_disease.ltbi = True
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(5, setup_params), 0.2)
         #After waning start, before waning end
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(21, setup_params), 0.2)
         #After waning end
-        self.assertGreaterEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 1)
+        self.assertEqual(self.mock_disease.get_relative_susceptibility(31, setup_params), 0.2)
 
     def test_get_relative_infectiousness(self):
         #We have linear_scaleup set to false in spreadsheet for simulation - branch is ignored for now
@@ -70,20 +66,15 @@ class TestDiseaseMethods(unittest.TestCase):
         self.mock_disease.programmed['detection'] = 1
 
         self.mock_disease.tb_organ = "_extrapulmonary"
-        self.assertGreaterEqual(self.mock_disease.get_relative_infectiousness({}, 0, 0), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_infectiousness({}, 0, 0), 1)
-
+        self.assertEqual(self.mock_disease.get_relative_infectiousness({}, 0, 0), 0)
         self.mock_disease.tb_organ = "_smearneg"
-        self.assertGreaterEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 1)
+        self.assertEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0.0625)
 
         self.mock_disease.tb_organ = "_smearpos"
-        self.assertGreaterEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 1)
+        self.assertEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0.25)
 
         self.mock_disease.programmed['detection'] = -1
-        self.assertGreaterEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0)
-        self.assertLessEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 1)
+        self.assertEqual(self.mock_disease.get_relative_infectiousness(setup_params, 100, 15), 0.5)
 
     def test_infect_individual(self):
         #The determine_activation usually does not return anything
@@ -109,9 +100,11 @@ class TestDiseaseMethods(unittest.TestCase):
         self.mock_disease.ltbi = True
         setup_params = {'ltbi_test_specificity_if_bcg': 0.1, 
                         'ltbi_test_sensitivity': 0.1}
-        self.assertIsInstance(self.mock_disease.test_individual_for_latent_infection(setup_params), bool)
+        # self.assertIsInstance(self.mock_disease.test_individual_for_latent_infection(setup_params), bool)
+        self.assertFalse(self.mock_disease.test_individual_for_latent_infection(setup_params))
 
-    
+    # def test_get_preventive_treatment(self):
+
 
 if __name__ == '__main__':
     unittest.main()
