@@ -35,7 +35,7 @@ Run the model
 
 ### Python 2.7
 
-This branch is the original iteration of SNAP-TB. This version exists on `master` and has not been modified.
+The master branch is the original iteration of SNAP-TB and has not been modified.
 
 ### Python 3.7.6
 
@@ -71,7 +71,7 @@ SNAP-TB has two main parts, an ABM which is disease agnostic which has individua
         - `update_programmed_events()`
         - `store_variables()`
     - `move_forward()` is used to call and insert a function that runs TB related cleanup 
-
+    
 ## Configuring SNAP-TB  
 
 - Configuring SNAP-TB via spreadsheets
